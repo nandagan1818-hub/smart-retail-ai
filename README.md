@@ -348,6 +348,25 @@ VITE_LANGFLOW_API_KEY=your_langflow_api_key_here
 
 ---
 
+## 📸 Screenshots
+
+### 🔐 Halaman Login
+![Login Page](docs/screenshots/01-login.png)
+
+### 📊 Dashboard Utama — KPI Cards & Charts
+![Dashboard](docs/screenshots/02-dashboard.png)
+
+### 📋 Tabel Inventaris — Filter, Search, Status Badge
+![Inventory Table](docs/screenshots/03-table.png)
+
+### 🤖 Chat AI — Hasil Promo WhatsApp Otomatis
+![AI Chat Widget](docs/screenshots/04-chat-ai.png)
+
+### ➕ Tambah Produk Baru
+![Add Product Modal](docs/screenshots/05-add-product.png)
+
+---
+
 <div align="center">
 
 **Dibuat dengan ❤️ menggunakan IBM Bob + LangFlow**
