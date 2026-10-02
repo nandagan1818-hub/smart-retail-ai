@@ -365,6 +365,9 @@ VITE_LANGFLOW_API_KEY=your_langflow_api_key_here
 ### ➕ Tambah Produk Baru
 ![Add Product Modal](docs/screenshots/05-add-product.png)
 
+### ➕ Tambah Produk Baru (2)
+![Add Product Modal 2](docs/screenshots/06-add-product-2.png)
+
 ---
 
 <div align="center">
