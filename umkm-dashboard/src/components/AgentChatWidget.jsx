@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import axios from 'axios'
 import {
   LANGFLOW_BASE_URL, LANGFLOW_FLOW_ID, LANGFLOW_API_KEY,
-  GEMINI_API_KEY, GEMINI_MODELS, SYSTEM_PROMPT
+  GEMINI_API_KEY, GEMINI_MODELS, SYSTEM_PROMPT, AI_MODE
 } from '../config/langflow'
 import { MessageCircle, X, Send, Bot, User, Loader2, Copy, Check, Zap } from 'lucide-react'
 
@@ -48,20 +48,22 @@ async function callGeminiDirect(text) {
   throw lastErr
 }
 
-// ── Fungsi utama: coba LangFlow, fallback ke Gemini ──────────
+// ── Fungsi utama ──────────────────────────────────────────────
+// AI_MODE='gemini-only'     → langsung Gemini (untuk deploy online)
+// AI_MODE='langflow-first'  → coba LangFlow dulu, fallback Gemini
 async function sendToAI(text) {
+  if (AI_MODE === 'gemini-only') {
+    const { text: reply, model } = await callGeminiDirect(text)
+    return { text: reply, via: `Gemini (${model})` }
+  }
+  // langflow-first
   try {
     const txt = await callLangflow(text)
     return { text: txt, via: 'LangFlow' }
   } catch (lfErr) {
     console.warn('[LangFlow gagal, coba Gemini]', lfErr?.message)
-    try {
-      const { text: reply, model } = await callGeminiDirect(text)
-      return { text: reply, via: `Gemini (${model})` }
-    } catch (gemErr) {
-      // Kedua jalur gagal — lempar error Gemini (lebih informatif)
-      throw gemErr
-    }
+    const { text: reply, model } = await callGeminiDirect(text)
+    return { text: reply, via: `Gemini (${model})` }
   }
 }
 
