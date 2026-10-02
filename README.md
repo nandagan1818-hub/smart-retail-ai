@@ -6,11 +6,14 @@
 
 Dashboard inventaris cerdas untuk UMKM dengan asisten AI yang bisa membuat teks promosi WhatsApp secara otomatis.
 
+[![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-smart--retail--ai.vercel.app-0070f3?style=for-the-badge)](https://smart-retail-ai-ten.vercel.app/)
+
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)
 ![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite)
 ![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?logo=tailwindcss)
 ![LangFlow](https://img.shields.io/badge/LangFlow-Desktop-FF6B6B)
 ![IBM Bob](https://img.shields.io/badge/IBM_Bob-AI_Dev-052FAD?logo=ibm)
+![Vercel](https://img.shields.io/badge/Deployed-Vercel-black?logo=vercel)
 
 </div>
 
@@ -180,10 +183,16 @@ Request AI
 - **LangFlow Desktop** terinstall di `/Applications/Langflow .app`
 - **Google Gemini API Key** (dari [Google AI Studio](https://aistudio.google.com/app/apikey))
 
+### 0. Coba Langsung (Tanpa Install)
+
+> 🌐 **[https://smart-retail-ai-ten.vercel.app/](https://smart-retail-ai-ten.vercel.app/)**
+>
+> Login: `admin` / `admin123`
+
 ### 1. Clone & Setup
 
 ```bash
-git clone https://github.com/username/smart-retail-ai.git
+git clone https://github.com/nandapratama/smart-retail-ai.git
 cd smart-retail-ai
 
 # Setup environment variables
@@ -306,19 +315,36 @@ smart-retail-ai/
 Salin `.env.example` → `.env` dan isi nilainya:
 
 ```env
+# Mode AI: 'gemini-only' (deploy online) | 'langflow-first' (demo live lokal)
+VITE_AI_MODE=gemini-only
+
+# Google Gemini API Key — https://aistudio.google.com/app/apikey
+VITE_GEMINI_API_KEY=your_gemini_api_key_here
+
+# LangFlow Desktop (hanya untuk demo live lokal)
 VITE_LANGFLOW_BASE_URL=/langflow-api
 VITE_LANGFLOW_FLOW_ID=ecbe443a-cafc-4991-a25e-1fdee7d85b75
 VITE_LANGFLOW_API_KEY=your_langflow_api_key_here
-VITE_GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
 > ⚠️ **Jangan pernah commit file `.env` ke GitHub.** File ini sudah ada di `.gitignore`.
 
 ---
 
-## 📸 Screenshots
+## 🌐 Live Demo
 
-> _Tambahkan screenshot dashboard, chat widget, dan hasil promo AI di sini_
+| | |
+|---|---|
+| **URL** | https://smart-retail-ai-ten.vercel.app/ |
+| **Platform** | Vercel (free tier) |
+| **AI Engine** | Google Gemini `gemini-3.5-flash-lite` |
+
+### Akun Demo
+| Username | Password | Role |
+|---|---|---|
+| `admin` | `admin123` | Administrator |
+| `kasir` | `kasir123` | Kasir |
+| `pemilik` | `pemilik123` | Pemilik Toko |
 
 ---
 
