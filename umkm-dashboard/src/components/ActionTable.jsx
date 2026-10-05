@@ -25,8 +25,9 @@ const formatRupiah = (v) =>
 
 const STATUS_CONFIG = {
   'normal':         { label: 'Normal',         bg: 'bg-emerald-100', text: 'text-emerald-700' },
+  'low-stock':      { label: 'Low-Stock',       bg: 'bg-yellow-100',  text: 'text-yellow-700'  },
   'dead-stock':     { label: 'Dead-Stock',      bg: 'bg-amber-100',   text: 'text-amber-700'   },
-  'hampir-expired': { label: 'Hampir Expired',  bg: 'bg-yellow-100',  text: 'text-yellow-700'  },
+  'hampir-expired': { label: 'Hampir Expired',  bg: 'bg-orange-100',  text: 'text-orange-700'  },
   'expired':        { label: 'Expired',         bg: 'bg-red-100',     text: 'text-red-700'     },
 }
 
@@ -149,6 +150,7 @@ export default function ActionTable({ items = [], categories = ['Semua'], onCrea
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Produk</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Kategori</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Stok</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Stok Min</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Terjual/Bln</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Harga Jual</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">HPP</th>
@@ -176,6 +178,7 @@ export default function ActionTable({ items = [], categories = ['Semua'], onCrea
                   <td className="px-4 py-3 font-medium text-gray-800">{p.nama}</td>
                   <td className="px-4 py-3 text-gray-500">{p.kategori}</td>
                   <td className="px-4 py-3 text-right font-mono text-gray-700">{p.stok}</td>
+                  <td className="px-4 py-3 text-right font-mono text-gray-500">{p.stokMin ?? '—'}</td>
                   <td className="px-4 py-3 text-right font-mono text-gray-700">{p.terjualPerBulan}</td>
                   <td className="px-4 py-3 text-right font-mono text-gray-700">{formatRupiah(p.hargaJual)}</td>
                   <td className="px-4 py-3 text-right font-mono text-gray-500">{p.hpp ? formatRupiah(p.hpp) : '—'}</td>

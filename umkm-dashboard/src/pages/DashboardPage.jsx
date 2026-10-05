@@ -5,11 +5,14 @@ import StockCharts from '../components/StockCharts'
 import ActionTable from '../components/ActionTable'
 import AgentChatWidget from '../components/AgentChatWidget'
 import AlertBanner from '../components/AlertBanner'
+import LowStockAlert from '../components/LowStockAlert'
 import AddProductModal from '../components/AddProductModal'
+import PemasokPage from './PemasokPage'
 import LoginPage from './LoginPage'
 import { useAuth } from '../hooks/useAuth'
 import { useInventory } from '../hooks/useInventory'
-import { LayoutDashboard, ShoppingBag, LogOut, PackagePlus } from 'lucide-react'
+import { usePemasok } from '../hooks/usePemasok'
+import { LayoutDashboard, ShoppingBag, LogOut, PackagePlus, Truck, Users } from 'lucide-react'
 
 const ROLE_COLOR = {
   Admin:   'bg-blue-100 text-blue-700',
@@ -20,13 +23,14 @@ const ROLE_COLOR = {
 export default function App() {
   const { user, login, logout } = useAuth()
   const { items, categories, addItem, deleteItem, deleteMany } = useInventory()
-  const [promoProduct, setPromoProduct] = useState(null)
-  const [showAddModal, setShowAddModal]  = useState(false)
+  const { pemasokList, addPemasok, deletePemasok, poList, addPO, updatePOStatus, deletePO } = usePemasok()
 
-  // Tampilkan halaman login jika belum autentikasi
-  if (!user) {
-    return <LoginPage onLogin={login} />
-  }
+  const [activePage, setActivePage]     = useState('dashboard')  // 'dashboard' | 'pemasok'
+  const [promoProduct, setPromoProduct] = useState(null)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [poProduct, setPOProduct]       = useState(null) // trigger PO dari Low-Stock alert
+
+  if (!user) return <LoginPage onLogin={login} />
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -44,10 +48,22 @@ export default function App() {
           </div>
         </div>
         <nav className="flex-1 px-3 py-4 space-y-1">
-          <a href="#" className="flex items-center gap-3 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 text-sm font-semibold">
+          <button
+            onClick={() => setActivePage('dashboard')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors
+              ${activePage === 'dashboard' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}
+          >
             <LayoutDashboard size={16} />
             Dashboard
-          </a>
+          </button>
+          <button
+            onClick={() => setActivePage('pemasok')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors
+              ${activePage === 'pemasok' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}
+          >
+            <Truck size={16} />
+            Pemasok & PO
+          </button>
           <button
             onClick={() => setShowAddModal(true)}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 text-sm font-medium transition-colors"
@@ -56,7 +72,6 @@ export default function App() {
             Tambah Produk
           </button>
         </nav>
-        {/* User info di sidebar */}
         <div className="px-4 py-4 border-t border-gray-100">
           <div className="flex items-center gap-3 px-2 py-2 rounded-xl bg-gray-50">
             <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
@@ -84,7 +99,9 @@ export default function App() {
         {/* Header */}
         <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-base font-bold text-gray-800">Dashboard Inventaris</h1>
+            <h1 className="text-base font-bold text-gray-800">
+              {activePage === 'dashboard' ? 'Dashboard Inventaris' : 'Pemasok & Purchase Order'}
+            </h1>
             <p className="text-xs text-gray-400">Periode: Oktober 2026</p>
           </div>
           <div className="flex items-center gap-3">
@@ -92,7 +109,6 @@ export default function App() {
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-xs text-gray-500">AI Aktif</span>
             </div>
-            {/* User badge di header (untuk mobile) */}
             <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 lg:hidden">
               <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center">
                 <span className="text-white text-xs font-bold">{user.name.charAt(0)}</span>
@@ -102,7 +118,6 @@ export default function App() {
                 <LogOut size={13} />
               </button>
             </div>
-            {/* User badge di header (desktop) */}
             <div className="hidden lg:flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5">
               <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center">
                 <span className="text-white text-xs font-bold">{user.name.charAt(0)}</span>
@@ -117,42 +132,76 @@ export default function App() {
 
         {/* Content */}
         <main className="flex-1 p-6 space-y-6 overflow-auto">
-          <AlertBanner items={items} />
 
-          <section>
-            <h2 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wide">Ringkasan Inventaris</h2>
-            <SummaryCards items={items} />
-          </section>
+          {/* ── HALAMAN DASHBOARD ── */}
+          {activePage === 'dashboard' && (
+            <>
+              <AlertBanner items={items} />
+              <LowStockAlert
+                items={items}
+                onCreatePO={(product) => { setPOProduct(product); setActivePage('pemasok') }}
+              />
 
-          <section>
-            <h2 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wide">Ringkasan Finansial</h2>
-            <FinancialCards items={items} />
-          </section>
+              <section>
+                <h2 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wide">Ringkasan Inventaris</h2>
+                <SummaryCards items={items} />
+              </section>
 
-          <section>
-            <h2 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wide">Analisis Visual</h2>
-            <StockCharts items={items} />
-          </section>
+              <section>
+                <h2 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wide">Ringkasan Finansial</h2>
+                <FinancialCards items={items} />
+              </section>
 
-          <section>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Data Inventaris</h2>
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              >
-                <PackagePlus size={13} />
-                Tambah Produk
-              </button>
-            </div>
-            <ActionTable
-              items={items}
-              categories={categories}
-              onCreatePromo={(product) => setPromoProduct(product)}
-              onDelete={deleteItem}
-              onDeleteMany={deleteMany}
+              <section>
+                <h2 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wide">Analisis Visual</h2>
+                <StockCharts items={items} />
+              </section>
+
+              <section>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Data Inventaris</h2>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setActivePage('pemasok')}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+                    >
+                      <Users size={13} />
+                      Kelola Pemasok
+                    </button>
+                    <button
+                      onClick={() => setShowAddModal(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    >
+                      <PackagePlus size={13} />
+                      Tambah Produk
+                    </button>
+                  </div>
+                </div>
+                <ActionTable
+                  items={items}
+                  categories={categories}
+                  onCreatePromo={(product) => setPromoProduct(product)}
+                  onDelete={deleteItem}
+                  onDeleteMany={deleteMany}
+                />
+              </section>
+            </>
+          )}
+
+          {/* ── HALAMAN PEMASOK & PO ── */}
+          {activePage === 'pemasok' && (
+            <PemasokPage
+              pemasokList={pemasokList}
+              poList={poList}
+              addPemasok={addPemasok}
+              deletePemasok={deletePemasok}
+              addPO={addPO}
+              updatePOStatus={updatePOStatus}
+              deletePO={deletePO}
+              defaultPOProduct={poProduct}
+              onDefaultPOClear={() => setPOProduct(null)}
             />
-          </section>
+          )}
         </main>
       </div>
 

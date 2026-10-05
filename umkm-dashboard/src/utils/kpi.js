@@ -5,7 +5,7 @@ const REFERENCE_DATE = new Date('2026-10-01')
 const END_OF_MONTH   = new Date('2026-10-31')
 
 export function getProductStatus(product) {
-  const { stok, terjualPerBulan, expired } = product
+  const { stok, terjualPerBulan, expired, stokMin } = product
   if (expired) {
     const expDate = new Date(expired)
     if (expDate <= END_OF_MONTH) return 'expired'
@@ -13,7 +13,15 @@ export function getProductStatus(product) {
     if (daysUntilExpiry <= 30) return 'hampir-expired'
   }
   if (terjualPerBulan > 0 && stok / terjualPerBulan > 3) return 'dead-stock'
+  if (stokMin && stok <= stokMin) return 'low-stock'
   return 'normal'
+}
+
+export function getLowStockProducts(items = defaultInventory) {
+  return items
+    .filter(p => p.stokMin && p.stok <= p.stokMin && getProductStatus(p) === 'low-stock')
+    .sort((a, b) => (a.stok / (a.stokMin || 1)) - (b.stok / (b.stokMin || 1)))
+    .slice(0, 10)
 }
 
 export function getTotalPotentialLoss(items = defaultInventory) {
