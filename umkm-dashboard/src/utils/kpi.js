@@ -64,3 +64,47 @@ export function getStatusDistribution(items = defaultInventory) {
     { name: 'Expired',        value: counts.expired,          color: '#EF4444' },
   ]
 }
+
+// ── Finansial (HPP & P&L) ─────────────────────────────────────
+
+// Total pendapatan kotor = Σ (hargaJual × terjualPerBulan)
+export function getTotalPendapatan(items = defaultInventory) {
+  return items.reduce((sum, p) => sum + p.hargaJual * p.terjualPerBulan, 0)
+}
+
+// Total HPP = Σ (hpp × terjualPerBulan)
+export function getTotalHPP(items = defaultInventory) {
+  return items.reduce((sum, p) => sum + (p.hpp ?? 0) * p.terjualPerBulan, 0)
+}
+
+// Laba bersih = pendapatan - HPP
+export function getTotalLaba(items = defaultInventory) {
+  return getTotalPendapatan(items) - getTotalHPP(items)
+}
+
+// Kerugian akibat expired & dead-stock dihitung dari nilai HPP stok bermasalah
+export function getKerugianProdukBermasalah(items = defaultInventory) {
+  return items.reduce((sum, p) => {
+    const status = getProductStatus(p)
+    if (status === 'expired' || status === 'dead-stock') {
+      return sum + (p.hpp ?? p.hargaJual) * p.stok
+    }
+    return sum
+  }, 0)
+}
+
+// Data tren bulanan untuk line chart (6 bulan ke belakang dari Oktober 2026)
+export function getTrendFinansial(items = defaultInventory) {
+  const bulan = ['Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt']
+  // Simulasi tren: bulan ini = aktual, sebelumnya ~variasi ±10-15%
+  const pendapatanBulanIni = getTotalPendapatan(items)
+  const hppBulanIni        = getTotalHPP(items)
+  const labaBulanIni       = pendapatanBulanIni - hppBulanIni
+  const faktor = [0.78, 0.83, 0.88, 0.92, 0.96, 1.00]
+  return bulan.map((bln, i) => ({
+    bulan: bln,
+    pendapatan: Math.round(pendapatanBulanIni * faktor[i]),
+    hpp:        Math.round(hppBulanIni        * faktor[i]),
+    laba:       Math.round(labaBulanIni       * faktor[i]),
+  }))
+}

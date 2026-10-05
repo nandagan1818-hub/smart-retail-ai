@@ -8,7 +8,7 @@ const KATEGORI_OPTIONS = [
 
 const EMPTY_FORM = {
   nama: '', kategori: 'Minuman', stok: '',
-  hargaJual: '', terjualPerBulan: '', expired: ''
+  hargaJual: '', hpp: '', terjualPerBulan: '', expired: ''
 }
 
 export default function AddProductModal({ onAdd, onClose }) {
@@ -20,6 +20,8 @@ export default function AddProductModal({ onAdd, onClose }) {
     if (!form.nama.trim())               e.nama           = 'Nama produk wajib diisi'
     if (!form.stok || form.stok <= 0)    e.stok           = 'Stok harus lebih dari 0'
     if (!form.hargaJual || form.hargaJual <= 0) e.hargaJual = 'Harga jual harus lebih dari 0'
+    if (!form.hpp || form.hpp <= 0)      e.hpp            = 'HPP (Harga Beli) wajib diisi'
+    if (Number(form.hpp) >= Number(form.hargaJual)) e.hpp = 'HPP harus lebih kecil dari Harga Jual'
     if (!form.terjualPerBulan || form.terjualPerBulan < 0) e.terjualPerBulan = 'Terjual/bulan tidak valid'
     return e
   }
@@ -38,6 +40,7 @@ export default function AddProductModal({ onAdd, onClose }) {
       kategori:        form.kategori,
       stok:            parseInt(form.stok),
       hargaJual:       parseInt(form.hargaJual),
+      hpp:             parseInt(form.hpp),
       terjualPerBulan: parseInt(form.terjualPerBulan),
       expired:         form.expired || null,
     })
@@ -114,18 +117,36 @@ export default function AddProductModal({ onAdd, onClose }) {
             </div>
           </div>
 
-          {/* Harga Jual */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Harga Jual (Rp) <span className="text-red-500">*</span></label>
-            <input
-              type="number" min="0"
-              value={form.hargaJual}
-              onChange={e => handleChange('hargaJual', e.target.value)}
-              placeholder="0"
-              className={`w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200 ${errors.hargaJual ? 'border-red-300' : 'border-gray-200'}`}
-            />
-            {errors.hargaJual && <p className="text-xs text-red-500 mt-1">{errors.hargaJual}</p>}
+          {/* Harga Jual & HPP */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Harga Jual (Rp) <span className="text-red-500">*</span></label>
+              <input
+                type="number" min="0"
+                value={form.hargaJual}
+                onChange={e => handleChange('hargaJual', e.target.value)}
+                placeholder="0"
+                className={`w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200 ${errors.hargaJual ? 'border-red-300' : 'border-gray-200'}`}
+              />
+              {errors.hargaJual && <p className="text-xs text-red-500 mt-1">{errors.hargaJual}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">HPP / Harga Beli (Rp) <span className="text-red-500">*</span></label>
+              <input
+                type="number" min="0"
+                value={form.hpp}
+                onChange={e => handleChange('hpp', e.target.value)}
+                placeholder="0"
+                className={`w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200 ${errors.hpp ? 'border-red-300' : 'border-gray-200'}`}
+              />
+              {errors.hpp && <p className="text-xs text-red-500 mt-1">{errors.hpp}</p>}
+            </div>
           </div>
+          {form.hargaJual && form.hpp && Number(form.hpp) < Number(form.hargaJual) && (
+            <p className="text-xs text-emerald-600 -mt-2">
+              ✓ Margin: {(((form.hargaJual - form.hpp) / form.hargaJual) * 100).toFixed(1)}%
+            </p>
+          )}
 
           {/* Tanggal Expired */}
           <div>

@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { getProductStatus } from '../utils/kpi'
 import { Search, Megaphone, Download, Trash2 } from 'lucide-react'
 
+const calcMargin = (p) => p.hpp ? (((p.hargaJual - p.hpp) / p.hargaJual) * 100).toFixed(1) : '-'
+
 function exportCSV(data) {
-  const headers = ['Nama Produk', 'Kategori', 'Stok', 'Terjual/Bulan', 'Harga Jual', 'Expired', 'Status']
+  const headers = ['Nama Produk', 'Kategori', 'Stok', 'Terjual/Bulan', 'Harga Jual', 'HPP', 'Margin (%)', 'Expired', 'Status']
   const rows = data.map(p => [
     p.nama, p.kategori, p.stok, p.terjualPerBulan,
-    p.hargaJual, p.expired ?? '-', getProductStatus(p)
+    p.hargaJual, p.hpp ?? '-', calcMargin(p), p.expired ?? '-', getProductStatus(p)
   ])
   const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -149,6 +151,8 @@ export default function ActionTable({ items = [], categories = ['Semua'], onCrea
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Stok</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Terjual/Bln</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Harga Jual</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">HPP</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Margin</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Expired</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Aksi</th>
@@ -174,6 +178,15 @@ export default function ActionTable({ items = [], categories = ['Semua'], onCrea
                   <td className="px-4 py-3 text-right font-mono text-gray-700">{p.stok}</td>
                   <td className="px-4 py-3 text-right font-mono text-gray-700">{p.terjualPerBulan}</td>
                   <td className="px-4 py-3 text-right font-mono text-gray-700">{formatRupiah(p.hargaJual)}</td>
+                  <td className="px-4 py-3 text-right font-mono text-gray-500">{p.hpp ? formatRupiah(p.hpp) : '—'}</td>
+                  <td className="px-4 py-3 text-right">
+                    {p.hpp
+                      ? <span className={`text-xs font-semibold ${((p.hargaJual-p.hpp)/p.hargaJual*100) >= 20 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          {calcMargin(p)}%
+                        </span>
+                      : <span className="text-gray-400 text-xs">—</span>
+                    }
+                  </td>
                   <td className="px-4 py-3 text-gray-500">{p.expired ?? '—'}</td>
                   <td className="px-4 py-3"><StatusBadge status={status} /></td>
                   <td className="px-4 py-3">

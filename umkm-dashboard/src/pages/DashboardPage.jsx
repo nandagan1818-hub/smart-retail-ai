@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import SummaryCards from '../components/SummaryCards'
+import FinancialCards from '../components/FinancialCards'
 import StockCharts from '../components/StockCharts'
 import ActionTable from '../components/ActionTable'
 import AgentChatWidget from '../components/AgentChatWidget'
@@ -117,7 +118,16 @@ export default function App() {
         {/* Content */}
         <main className="flex-1 p-6 space-y-6 overflow-auto">
           <AlertBanner items={items} />
-          <SummaryCards items={items} />
+
+          <section>
+            <h2 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wide">Ringkasan Inventaris</h2>
+            <SummaryCards items={items} />
+          </section>
+
+          <section>
+            <h2 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wide">Ringkasan Finansial</h2>
+            <FinancialCards items={items} />
+          </section>
 
           <section>
             <h2 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wide">Analisis Visual</h2>

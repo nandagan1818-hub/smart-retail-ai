@@ -1,8 +1,9 @@
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell, Tooltip as PieTooltip
+  PieChart, Pie, Cell, Tooltip as PieTooltip,
+  LineChart, Line
 } from 'recharts'
-import { getStockByCategory, getStatusDistribution } from '../utils/kpi'
+import { getStockByCategory, getStatusDistribution, getTrendFinansial } from '../utils/kpi'
 
 const formatRupiah = (v) => `${v.toLocaleString('id-ID')}`
 
@@ -73,11 +74,37 @@ function StatusDonutChart({ items }) {
   )
 }
 
+const fmtJuta = (v) => `${(v / 1_000_000).toFixed(1)}jt`
+
+function FinancialLineChart({ items }) {
+  const data = getTrendFinansial(items)
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <h3 className="text-sm font-semibold text-gray-700 mb-4">Pendapatan vs HPP vs Laba Bersih (6 Bulan)</h3>
+      <ResponsiveContainer width="100%" height={260}>
+        <LineChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+          <XAxis dataKey="bulan" tick={{ fontSize: 11 }} />
+          <YAxis tick={{ fontSize: 10 }} tickFormatter={fmtJuta} />
+          <Tooltip formatter={(v) => `Rp ${v.toLocaleString('id-ID')}`} />
+          <Legend wrapperStyle={{ fontSize: 12 }} />
+          <Line type="monotone" dataKey="pendapatan" name="Pendapatan" stroke="#3B82F6" strokeWidth={2.5} dot={{ r: 4 }} />
+          <Line type="monotone" dataKey="hpp"        name="HPP (Modal)" stroke="#F59E0B" strokeWidth={2.5} dot={{ r: 4 }} />
+          <Line type="monotone" dataKey="laba"       name="Laba Bersih" stroke="#10B981" strokeWidth={2.5} dot={{ r: 4 }} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
 export default function StockCharts({ items }) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <StockBarChart items={items} />
-      <StatusDonutChart items={items} />
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <StockBarChart items={items} />
+        <StatusDonutChart items={items} />
+      </div>
+      <FinancialLineChart items={items} />
     </div>
   )
 }
