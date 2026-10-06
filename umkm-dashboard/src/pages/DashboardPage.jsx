@@ -7,12 +7,19 @@ import AgentChatWidget from '../components/AgentChatWidget'
 import AlertBanner from '../components/AlertBanner'
 import LowStockAlert from '../components/LowStockAlert'
 import AddProductModal from '../components/AddProductModal'
+import OcrFakturModal from '../components/OcrFakturModal'
 import PemasokPage from './PemasokPage'
+import POSPage from './POSPage'
+import ActivityLogPage from './ActivityLogPage'
 import LoginPage from './LoginPage'
 import { useAuth } from '../hooks/useAuth'
 import { useInventory } from '../hooks/useInventory'
 import { usePemasok } from '../hooks/usePemasok'
-import { LayoutDashboard, ShoppingBag, LogOut, PackagePlus, Truck, Users } from 'lucide-react'
+import { useActivityLog, LOG_ACTIONS } from '../hooks/useActivityLog'
+import {
+  LayoutDashboard, ShoppingBag, LogOut, PackagePlus,
+  Truck, Users, MonitorSmartphone, ClipboardList
+} from 'lucide-react'
 
 const ROLE_COLOR = {
   Admin:   'bg-blue-100 text-blue-700',
@@ -22,19 +29,109 @@ const ROLE_COLOR = {
 
 export default function App() {
   const { user, login, logout } = useAuth()
-  const { items, categories, addItem, deleteItem, deleteMany } = useInventory()
+  const { items, categories, addItem, addMany, deleteItem, deleteMany, reduceStock } = useInventory()
   const { pemasokList, addPemasok, deletePemasok, poList, addPO, updatePOStatus, deletePO } = usePemasok()
+  const { logs, addLog, clearLogs } = useActivityLog()
 
-  const [activePage, setActivePage]     = useState('dashboard')  // 'dashboard' | 'pemasok'
+  const [activePage, setActivePage]     = useState('dashboard')
   const [promoProduct, setPromoProduct] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [poProduct, setPOProduct]       = useState(null) // trigger PO dari Low-Stock alert
+  const [showOcrModal, setShowOcrModal] = useState(false)
+  const [poProduct, setPOProduct]       = useState(null)
+  const [clearConfirm, setClearConfirm] = useState(false)
 
-  if (!user) return <LoginPage onLogin={login} />
+  if (!user) return <LoginPage onLogin={(u, p) => {
+    const ok = login(u, p)
+    if (ok) {
+      // login event will be logged after re-render; fire via timeout
+      setTimeout(() => addLog('LOGIN', u, `Login berhasil sebagai pengguna "${u}"`), 0)
+    }
+    return ok
+  }} />
+
+  /* ── logged wrappers ── */
+  function loggedAddItem(product) {
+    addItem(product)
+    addLog('TAMBAH_PRODUK', user.name,
+      `Tambah produk baru: "${product.nama}" | Stok: ${product.stok} | Harga Jual: Rp ${Number(product.hargaJual).toLocaleString('id-ID')} | HPP: Rp ${Number(product.hpp).toLocaleString('id-ID')}`)
+  }
+
+  function loggedAddMany(products) {
+    addMany(products)
+    addLog('TAMBAH_OCR', user.name,
+      `OCR Faktur: ${products.length} produk ditambahkan — ${products.map(p => `"${p.nama}"`).join(', ')}`)
+  }
+
+  function loggedDeleteItem(id) {
+    const p = items.find(i => i.id === id)
+    deleteItem(id)
+    addLog('HAPUS_PRODUK', user.name,
+      `Hapus produk: "${p?.nama ?? id}" | Stok saat hapus: ${p?.stok ?? '?'}`)
+  }
+
+  function loggedDeleteMany(ids) {
+    const names = ids.map(id => items.find(i => i.id === id)?.nama ?? id)
+    deleteMany(ids)
+    addLog('HAPUS_BANYAK', user.name,
+      `Hapus ${ids.length} produk sekaligus: ${names.map(n => `"${n}"`).join(', ')}`)
+  }
+
+  function loggedReduceStock(id, qty) {
+    const p = items.find(i => i.id === id)
+    reduceStock(id, qty)
+    addLog('KURANGI_STOK', user.name,
+      `Stok berkurang via POS: "${p?.nama ?? id}" −${qty} pcs (sisa: ${Math.max(0, (p?.stok ?? qty) - qty)})`)
+  }
+
+  function loggedPOSCheckout(cartSnapshot, payMethod, total) {
+    const itemList = cartSnapshot.map(c => `${c.nama} ×${c.qty}`).join(', ')
+    addLog('TRANSAKSI_POS', user.name,
+      `Transaksi POS selesai | Total: Rp ${total.toLocaleString('id-ID')} | Metode: ${payMethod} | Produk: ${itemList}`)
+  }
+
+  function loggedAddPO(po) {
+    addPO(po)
+    addLog('BUAT_PO', user.name,
+      `Buat PO baru ke pemasok "${po.pemasok ?? po.namaP ?? '?'}" | Produk: "${po.produk ?? po.namaProduk ?? '?'}" | Qty: ${po.qty ?? po.jumlah ?? '?'}`)
+  }
+
+  function loggedUpdatePOStatus(id, status) {
+    const po = poList.find(p => p.id === id)
+    updatePOStatus(id, status)
+    addLog('UPDATE_PO', user.name,
+      `Status PO #${id} (${po?.produk ?? po?.namaProduk ?? '?'}) diubah → "${status}"`)
+  }
+
+  function loggedDeletePO(id) {
+    const po = poList.find(p => p.id === id)
+    deletePO(id)
+    addLog('HAPUS_PO', user.name,
+      `Hapus PO #${id} — produk: "${po?.produk ?? po?.namaProduk ?? '?'}"`)
+  }
+
+  function loggedPromo(product) {
+    setPromoProduct(product)
+    addLog('BUAT_PROMO', user.name,
+      `Buat promo AI untuk: "${product.nama}" | Status: ${product.expired ? `Expired ${product.expired}` : 'Dead-Stock'} | Stok: ${product.stok}`)
+  }
+
+  function loggedLogout() {
+    addLog('LOGOUT', user.name, `Pengguna "${user.name}" logout dari sistem`)
+    logout()
+  }
+
+  /* ── Header title ── */
+  const PAGE_TITLE = {
+    dashboard: 'Dashboard Inventaris',
+    pemasok:   'Pemasok & Purchase Order',
+    pos:       'Point of Sale (POS)',
+    log:       'Log Aktivitas Sistem',
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
+
+      {/* ══ Sidebar ═════════════════════════════════════════════ */}
       <aside className="hidden lg:flex flex-col w-60 bg-white border-r border-gray-100 shadow-sm flex-shrink-0">
         <div className="px-6 py-5 border-b border-gray-100">
           <div className="flex items-center gap-2">
@@ -47,7 +144,9 @@ export default function App() {
             </div>
           </div>
         </div>
+
         <nav className="flex-1 px-3 py-4 space-y-1">
+          {/* Dashboard */}
           <button
             onClick={() => setActivePage('dashboard')}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors
@@ -56,6 +155,8 @@ export default function App() {
             <LayoutDashboard size={16} />
             Dashboard
           </button>
+
+          {/* Pemasok */}
           <button
             onClick={() => setActivePage('pemasok')}
             className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors
@@ -64,6 +165,35 @@ export default function App() {
             <Truck size={16} />
             Pemasok & PO
           </button>
+
+          {/* POS — hanya Admin/Kasir */}
+          {(user.role === 'Admin' || user.role === 'Kasir') && (
+            <button
+              onClick={() => setActivePage('pos')}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors
+                ${activePage === 'pos' ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+              <MonitorSmartphone size={16} />
+              Point of Sale (POS)
+            </button>
+          )}
+
+          {/* Log Aktivitas */}
+          <button
+            onClick={() => setActivePage('log')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors
+              ${activePage === 'log' ? 'bg-gray-100 text-gray-800' : 'text-gray-600 hover:bg-gray-50'}`}
+          >
+            <ClipboardList size={16} />
+            <span className="flex-1 text-left">Log Aktivitas</span>
+            {logs.length > 0 && (
+              <span className="text-xs bg-gray-200 text-gray-600 font-bold px-1.5 py-0.5 rounded-full leading-none">
+                {logs.length}
+              </span>
+            )}
+          </button>
+
+          {/* Tambah Produk */}
           <button
             onClick={() => setShowAddModal(true)}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 text-sm font-medium transition-colors"
@@ -72,6 +202,8 @@ export default function App() {
             Tambah Produk
           </button>
         </nav>
+
+        {/* User info + Logout */}
         <div className="px-4 py-4 border-t border-gray-100">
           <div className="flex items-center gap-3 px-2 py-2 rounded-xl bg-gray-50">
             <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
@@ -85,7 +217,7 @@ export default function App() {
             </div>
           </div>
           <button
-            onClick={logout}
+            onClick={loggedLogout}
             className="mt-2 w-full flex items-center justify-center gap-2 text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 py-2 rounded-lg transition-colors"
           >
             <LogOut size={13} />
@@ -94,13 +226,14 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main */}
+      {/* ══ Main ════════════════════════════════════════════════ */}
       <div className="flex-1 flex flex-col min-w-0">
+
         {/* Header */}
         <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-base font-bold text-gray-800">
-              {activePage === 'dashboard' ? 'Dashboard Inventaris' : 'Pemasok & Purchase Order'}
+              {PAGE_TITLE[activePage] ?? 'Dashboard'}
             </h1>
             <p className="text-xs text-gray-400">Periode: Oktober 2026</p>
           </div>
@@ -109,15 +242,17 @@ export default function App() {
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-xs text-gray-500">AI Aktif</span>
             </div>
+            {/* Mobile user badge */}
             <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 lg:hidden">
               <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center">
                 <span className="text-white text-xs font-bold">{user.name.charAt(0)}</span>
               </div>
               <span className="text-xs font-medium text-gray-700">{user.name}</span>
-              <button onClick={logout} className="text-gray-400 hover:text-red-500 transition-colors ml-1">
+              <button onClick={loggedLogout} className="text-gray-400 hover:text-red-500 transition-colors ml-1">
                 <LogOut size={13} />
               </button>
             </div>
+            {/* Desktop user badge */}
             <div className="hidden lg:flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5">
               <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center">
                 <span className="text-white text-xs font-bold">{user.name.charAt(0)}</span>
@@ -131,9 +266,9 @@ export default function App() {
         </header>
 
         {/* Content */}
-        <main className="flex-1 p-6 space-y-6 overflow-auto">
+        <main className={`flex-1 p-6 overflow-auto ${activePage === 'pos' ? 'flex flex-col' : 'space-y-6'}`}>
 
-          {/* ── HALAMAN DASHBOARD ── */}
+          {/* ── DASHBOARD ── */}
           {activePage === 'dashboard' && (
             <>
               <AlertBanner items={items} />
@@ -180,26 +315,45 @@ export default function App() {
                 <ActionTable
                   items={items}
                   categories={categories}
-                  onCreatePromo={(product) => setPromoProduct(product)}
-                  onDelete={deleteItem}
-                  onDeleteMany={deleteMany}
+                  onCreatePromo={loggedPromo}
+                  onDelete={loggedDeleteItem}
+                  onDeleteMany={loggedDeleteMany}
+                  onOpenOcr={() => setShowOcrModal(true)}
                 />
               </section>
             </>
           )}
 
-          {/* ── HALAMAN PEMASOK & PO ── */}
+          {/* ── PEMASOK & PO ── */}
           {activePage === 'pemasok' && (
             <PemasokPage
               pemasokList={pemasokList}
               poList={poList}
               addPemasok={addPemasok}
               deletePemasok={deletePemasok}
-              addPO={addPO}
-              updatePOStatus={updatePOStatus}
-              deletePO={deletePO}
+              addPO={loggedAddPO}
+              updatePOStatus={loggedUpdatePOStatus}
+              deletePO={loggedDeletePO}
               defaultPOProduct={poProduct}
               onDefaultPOClear={() => setPOProduct(null)}
+            />
+          )}
+
+          {/* ── POINT OF SALE ── */}
+          {activePage === 'pos' && (
+            <POSPage
+              items={items}
+              onReduceStock={loggedReduceStock}
+              onCheckoutLog={loggedPOSCheckout}
+              cashierName={user.name}
+            />
+          )}
+
+          {/* ── LOG AKTIVITAS ── */}
+          {activePage === 'log' && (
+            <ActivityLogPage
+              logs={logs}
+              onClear={() => setClearConfirm(true)}
             />
           )}
         </main>
@@ -214,9 +368,48 @@ export default function App() {
       {/* Modal Tambah Produk */}
       {showAddModal && (
         <AddProductModal
-          onAdd={addItem}
+          onAdd={loggedAddItem}
           onClose={() => setShowAddModal(false)}
         />
+      )}
+
+      {/* Modal OCR Faktur */}
+      {showOcrModal && (
+        <OcrFakturModal
+          onAddMany={loggedAddMany}
+          onClose={() => setShowOcrModal(false)}
+        />
+      )}
+
+      {/* Dialog konfirmasi clear log */}
+      {clearConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-red-100 p-2 rounded-xl">
+                <ClipboardList size={18} className="text-red-600" />
+              </div>
+              <h3 className="text-sm font-semibold text-gray-800">Hapus Semua Log?</h3>
+            </div>
+            <p className="text-sm text-gray-500 mb-5">
+              Semua <span className="font-semibold text-gray-700">{logs.length} entri log</span> akan dihapus secara permanen dari sesi ini.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setClearConfirm(false)}
+                className="flex-1 py-2 text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={() => { clearLogs(); setClearConfirm(false) }}
+                className="flex-1 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors"
+              >
+                Hapus Log
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

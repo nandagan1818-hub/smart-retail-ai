@@ -11,6 +11,14 @@ export function useInventory() {
     setItems(prev => [...prev, { ...product, id: newId }])
   }
 
+  function addMany(products) {
+    setItems(prev => {
+      let maxId = prev.length > 0 ? Math.max(...prev.map(p => p.id)) : 0
+      const newItems = products.map(p => ({ ...p, id: ++maxId, stokMin: p.stokMin ?? 5 }))
+      return [...prev, ...newItems]
+    })
+  }
+
   function deleteItem(id) {
     setItems(prev => prev.filter(p => p.id !== id))
   }
@@ -20,5 +28,11 @@ export function useInventory() {
     setItems(prev => prev.filter(p => !set.has(p.id)))
   }
 
-  return { items, categories, addItem, deleteItem, deleteMany }
+  function reduceStock(id, qty) {
+    setItems(prev =>
+      prev.map(p => p.id === id ? { ...p, stok: Math.max(0, p.stok - qty) } : p)
+    )
+  }
+
+  return { items, categories, addItem, addMany, deleteItem, deleteMany, reduceStock }
 }

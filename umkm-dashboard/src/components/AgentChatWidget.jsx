@@ -4,9 +4,97 @@ import {
   LANGFLOW_BASE_URL, LANGFLOW_FLOW_ID, LANGFLOW_API_KEY,
   GEMINI_API_KEY, GEMINI_MODELS, SYSTEM_PROMPT, AI_MODE
 } from '../config/langflow'
-import { MessageCircle, X, Send, Bot, User, Loader2, Copy, Check, Zap } from 'lucide-react'
+import { CRM_SEGMENTS } from '../data/crm'
+import {
+  MessageCircle, X, Send, Bot, User, Loader2, Copy, Check,
+  Zap, Users, ChevronDown
+} from 'lucide-react'
 
-// ── Panggil LangFlow ──────────────────────────────────────────
+/* ─── Dynamic Pricing Engine ─────────────────────────── */
+/**
+ * Hitung diskon dinamis berdasarkan sisa hari expired dan stok.
+ * Returns { pct: number, label: string, reason: string }
+ */
+function calcDynamicDiscount(product) {
+  const REFERENCE_DATE = new Date('2026-10-01')
+
+  let expiredDays = null
+  if (product.expired) {
+    const expDate = new Date(product.expired)
+    expiredDays   = Math.ceil((expDate - REFERENCE_DATE) / (1000 * 60 * 60 * 24))
+  }
+
+  // Stok ratio vs penjualan bulanan
+  const stokRatio = product.terjualPerBulan > 0
+    ? product.stok / product.terjualPerBulan
+    : 99
+
+  let discountPct = 0
+  let label       = 'Tidak ada diskon'
+  let reason      = ''
+  let urgency     = 'low'   // low | medium | high | critical
+
+  // ── Prioritas 1: Expired-based ──
+  if (expiredDays !== null) {
+    if (expiredDays <= 0) {
+      discountPct = 70
+      label       = 'Diskon 70% — SUDAH EXPIRED'
+      reason      = `Produk sudah melewati tanggal expired`
+      urgency     = 'critical'
+    } else if (expiredDays <= 7) {
+      discountPct = 50
+      label       = `Diskon 50% — Expired ${expiredDays} hari lagi`
+      reason      = `Hanya tersisa ${expiredDays} hari sebelum expired (≤7 hari)`
+      urgency     = 'critical'
+    } else if (expiredDays <= 14) {
+      discountPct = 40
+      label       = `Diskon 40% — Expired ${expiredDays} hari lagi`
+      reason      = `Sisa ${expiredDays} hari sebelum expired (8–14 hari)`
+      urgency     = 'high'
+    } else if (expiredDays <= 30) {
+      discountPct = 30
+      label       = `Diskon 30% — Expired ${expiredDays} hari lagi`
+      reason      = `Sisa ${expiredDays} hari sebelum expired (15–30 hari)`
+      urgency     = 'high'
+    } else if (expiredDays <= 60) {
+      discountPct = 20
+      label       = `Diskon 20% — Expired ${expiredDays} hari lagi`
+      reason      = `Sisa ${expiredDays} hari sebelum expired (31–60 hari)`
+      urgency     = 'medium'
+    }
+  }
+
+  // ── Prioritas 2: Dead-stock-based (jika lebih tinggi dari expired) ──
+  if (stokRatio > 5 && discountPct < 25) {
+    discountPct = 25
+    label       = `Diskon 25% — Dead-Stock (${stokRatio.toFixed(1)}x stok bulanan)`
+    reason      = `Stok ${product.stok} pcs, terjual hanya ${product.terjualPerBulan}/bulan (${stokRatio.toFixed(1)}× overstok)`
+    urgency     = urgency === 'low' ? 'medium' : urgency
+  } else if (stokRatio > 3 && discountPct < 15) {
+    discountPct = 15
+    label       = `Diskon 15% — Stok Menumpuk`
+    reason      = `Stok ${product.stok} pcs, terjual ${product.terjualPerBulan}/bulan (${stokRatio.toFixed(1)}× overstok)`
+    urgency     = urgency === 'low' ? 'medium' : urgency
+  }
+
+  // Harga setelah diskon
+  const hargaCoret   = product.hargaJual
+  const hargaPromo   = Math.round(hargaCoret * (1 - discountPct / 100) / 100) * 100
+  const hargaMinProfit = product.hpp ? Math.round(product.hpp * 1.05) : null
+
+  return {
+    pct:          discountPct,
+    label,
+    reason,
+    urgency,
+    hargaCoret,
+    hargaPromo:   Math.max(hargaPromo, hargaMinProfit ?? 0),
+    expiredDays,
+    stokRatio,
+  }
+}
+
+/* ─── AI helpers ─────────────────────────────────────── */
 async function callLangflow(text) {
   const url = `${LANGFLOW_BASE_URL}/api/v1/run/${LANGFLOW_FLOW_ID}?stream=false`
   const res = await axios.post(
@@ -17,7 +105,6 @@ async function callLangflow(text) {
       timeout: 60000,
     }
   )
-  // Jika response body mengandung 'detail' (error dari LangFlow), throw agar fallback
   if (res.data?.detail) throw new Error(`LangFlow error: ${res.data.detail}`)
   const out = res.data?.outputs?.[0]?.outputs?.[0]
   const txt = out?.results?.message?.text ?? out?.messages?.[0]?.message ?? ''
@@ -25,7 +112,6 @@ async function callLangflow(text) {
   return txt
 }
 
-// ── Panggil Gemini langsung (fallback) ───────────────────────
 async function callGeminiDirect(text) {
   let lastErr
   for (const model of GEMINI_MODELS) {
@@ -40,7 +126,6 @@ async function callGeminiDirect(text) {
       if (reply) return { text: reply, model }
     } catch (err) {
       lastErr = err
-      // 429 atau 503 → coba model berikutnya
       const status = err?.response?.status
       if (status !== 429 && status !== 503 && status !== 404) throw err
     }
@@ -48,15 +133,11 @@ async function callGeminiDirect(text) {
   throw lastErr
 }
 
-// ── Fungsi utama ──────────────────────────────────────────────
-// AI_MODE='gemini-only'     → langsung Gemini (untuk deploy online)
-// AI_MODE='langflow-first'  → coba LangFlow dulu, fallback Gemini
 async function sendToAI(text) {
   if (AI_MODE === 'gemini-only') {
     const { text: reply, model } = await callGeminiDirect(text)
     return { text: reply, via: `Gemini (${model})` }
   }
-  // langflow-first
   try {
     const txt = await callLangflow(text)
     return { text: txt, via: 'LangFlow' }
@@ -67,6 +148,7 @@ async function sendToAI(text) {
   }
 }
 
+/* ─── ChatBubble ─────────────────────────────────────── */
 function ChatBubble({ msg }) {
   const isUser = msg.role === 'user'
   const [copied, setCopied] = useState(false)
@@ -86,15 +168,40 @@ function ChatBubble({ msg }) {
         }
       </div>
       <div className="max-w-[75%] group relative">
-        <div
-          className={`px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap leading-relaxed
-            ${isUser
-              ? 'bg-blue-600 text-white rounded-br-sm'
-              : 'bg-gray-100 text-gray-800 rounded-bl-sm'
-            }`}
+        <div className={`px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap leading-relaxed
+          ${isUser ? 'bg-blue-600 text-white rounded-br-sm' : 'bg-gray-100 text-gray-800 rounded-bl-sm'}`}
         >
           {msg.content}
         </div>
+        {/* Dynamic pricing badge */}
+        {msg.discount && (
+          <div className={[
+            'mt-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border',
+            msg.discount.urgency === 'critical' ? 'bg-red-50 border-red-200 text-red-700' :
+            msg.discount.urgency === 'high'     ? 'bg-orange-50 border-orange-200 text-orange-700' :
+            msg.discount.urgency === 'medium'   ? 'bg-amber-50 border-amber-200 text-amber-700' :
+                                                  'bg-gray-50 border-gray-200 text-gray-600'
+          ].join(' ')}>
+            <div className="font-bold">{msg.discount.label}</div>
+            <div className="font-normal opacity-80 mt-0.5">{msg.discount.reason}</div>
+            {msg.discount.pct > 0 && (
+              <div className="mt-1 font-bold">
+                Harga Promo: Rp {msg.discount.hargaPromo.toLocaleString('id-ID')}
+                <span className="font-normal line-through ml-1 opacity-60">
+                  Rp {msg.discount.hargaCoret.toLocaleString('id-ID')}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+        {/* CRM segment badge */}
+        {msg.segment && (
+          <div className={`mt-1 px-2.5 py-1 rounded-xl text-xs font-semibold border inline-flex items-center gap-1.5 ${CRM_SEGMENTS[msg.segment]?.color} border-current/20`}>
+            <Users size={11} />
+            Target: {CRM_SEGMENTS[msg.segment]?.emoji} {CRM_SEGMENTS[msg.segment]?.label}
+            <span className="font-normal opacity-70">· {CRM_SEGMENTS[msg.segment]?.channel}</span>
+          </div>
+        )}
         {!isUser && msg.via && (
           <div className="flex items-center gap-1 mt-1">
             <Zap size={9} className="text-emerald-500" />
@@ -118,82 +225,164 @@ function ChatBubble({ msg }) {
   )
 }
 
+/* ─── CRM Segment Picker (inside chat header) ────────── */
+function CrmPicker({ value, onChange }) {
+  const [open, setOpen] = useState(false)
+  const seg = CRM_SEGMENTS[value]
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1.5 text-xs bg-blue-500 hover:bg-blue-400 text-white px-2.5 py-1 rounded-lg transition-colors"
+      >
+        <Users size={11} />
+        {seg?.emoji} {seg?.label}
+        <ChevronDown size={10} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden w-52">
+          {Object.entries(CRM_SEGMENTS).map(([key, s]) => (
+            <button
+              key={key}
+              onClick={() => { onChange(key); setOpen(false) }}
+              className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-50 transition-colors flex items-center gap-2
+                ${value === key ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'}`}
+            >
+              <span>{s.emoji}</span>
+              <div>
+                <div className="font-semibold">{s.label}</div>
+                <div className="text-gray-400 truncate">{s.description}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ─── Main Widget ────────────────────────────────────── */
 export default function AgentChatWidget({ promoProduct, onPromoClear }) {
   const [open, setOpen]       = useState(false)
   const [messages, setMessages] = useState([
-    { id: 0, role: 'ai', content: 'Halo! Saya Asisten Smart Retail AI. Klik "Buat Promo" di tabel produk, atau tanyakan sesuatu tentang inventaris toko Anda.' }
+    {
+      id: 0, role: 'ai',
+      content: 'Halo! Saya Asisten Smart Retail AI.\n\nKlik "Promo" di tabel produk untuk mendapatkan rekomendasi diskon dinamis + teks promo WhatsApp yang ditargetkan ke segmen pelanggan tertentu.\n\nAtau tanyakan langsung tentang inventaris toko Anda! 💬'
+    }
   ])
   const [input, setInput]     = useState('')
   const [loading, setLoading] = useState(false)
+  const [crmSegment, setCrmSegment] = useState('all')
   const bottomRef             = useRef(null)
 
-  // Auto-scroll ke bawah
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
 
-  // Trigger otomatis dari tombol Buat Promo
+  /* ── Auto-trigger dari tombol Promo ── */
   useEffect(() => {
     if (!promoProduct) return
 
-    const product = promoProduct   // capture sebelum di-clear
-    onPromoClear()                 // clear segera agar tidak double-trigger
+    const product = promoProduct
+    onPromoClear()
     setOpen(true)
 
-    const status = product.expired
-      ? new Date(product.expired) <= new Date('2026-10-31') ? 'EXPIRED bulan ini' : 'Hampir Expired'
-      : product.stok / product.terjualPerBulan > 3 ? 'Dead-Stock (menumpuk)' : 'Normal'
+    // ── 1. Hitung dynamic pricing ──
+    const disc = calcDynamicDiscount(product)
 
-    const prompt =
-      `Kamu adalah Asisten Utama Toko UMKM "Smart Retail AI".\n\n` +
-      `Seorang pemilik toko meminta analisis dan strategi promo untuk produk berikut:\n\n` +
-      `- Nama Produk  : ${product.nama}\n` +
-      `- Kategori     : ${product.kategori}\n` +
-      `- Stok Saat Ini: ${product.stok} pcs\n` +
-      `- Terjual/Bulan: ${product.terjualPerBulan} pcs\n` +
-      `- Harga Jual   : Rp${product.hargaJual.toLocaleString('id-ID')}\n` +
-      `- Tgl Expired  : ${product.expired ?? 'tidak ada'}\n` +
-      `- Status       : ${status}\n\n` +
-      `Tolong lakukan:\n` +
-      `1. Analisis singkat mengapa produk ini perlu dipromosikan\n` +
-      `2. Skema promo "Buy 1 Get 1" yang spesifik (mekanisme, harga, durasi, batas pembelian)\n` +
-      `3. Teks promosi WhatsApp Broadcast yang siap kirim (gunakan emoji, buat menarik)\n` +
-      `4. Satu rekomendasi tambahan jika BOGO tidak cukup`
+    // ── 2. Ambil CRM segment info ──
+    const seg = CRM_SEGMENTS[crmSegment]
 
-    sendMessage(prompt, product.nama)
+    // ── 3. Build AI prompt ──
+    const prompt = [
+      `Kamu adalah Manajer Promo Toko UMKM "Smart Retail AI".`,
+      ``,
+      `DATA PRODUK:`,
+      `- Nama       : ${product.nama}`,
+      `- Kategori   : ${product.kategori}`,
+      `- Stok       : ${product.stok} pcs`,
+      `- Terjual/Bln: ${product.terjualPerBulan} pcs`,
+      `- Harga Jual : Rp ${product.hargaJual.toLocaleString('id-ID')}`,
+      `- HPP        : Rp ${(product.hpp ?? 0).toLocaleString('id-ID')}`,
+      `- Tgl Expired: ${product.expired ?? 'tidak ada'}`,
+      ``,
+      `REKOMENDASI DYNAMIC PRICING (sudah dihitung sistem):`,
+      `- ${disc.label}`,
+      `- Alasan     : ${disc.reason}`,
+      `- Harga Promo: Rp ${disc.hargaPromo.toLocaleString('id-ID')} (dari Rp ${disc.hargaCoret.toLocaleString('id-ID')})`,
+      ``,
+      `TARGET SEGMEN CRM:`,
+      `- Segmen     : ${seg.label} ${seg.emoji}`,
+      `- Deskripsi  : ${seg.description}`,
+      `- Hook Promo : "${seg.promoHook}"`,
+      `- Channel    : ${seg.channel}`,
+      ``,
+      `TUGAS:`,
+      `1. Konfirmasi & jelaskan logika diskon ${disc.pct}% yang direkomendasikan sistem (1-2 kalimat)`,
+      `2. Buat teks promo WhatsApp yang SIAP KIRIM untuk segmen "${seg.label}" dengan:`,
+      `   - Opening hook sesuai segmen (gunakan: "${seg.promoHook}")`,
+      `   - Nama produk, harga coret vs harga promo`,
+      `   - Urgensi/deadline promo yang relevan`,
+      `   - Call-to-action yang jelas`,
+      `   - Emoji yang relevan & menarik`,
+      `3. Satu tips tambahan spesifik untuk segmen ini`,
+    ].join('\n')
+
+    // Tambahkan user message + discount card
+    const userMsg = {
+      id: Date.now(),
+      role: 'user',
+      content: `📦 Buat promo untuk: ${product.nama}`,
+      discount: disc,
+      segment: crmSegment,
+    }
+    setMessages(prev => [...prev, userMsg])
+    setLoading(true)
+
+    sendToAI(prompt)
+      .then(({ text: reply, via }) => {
+        setMessages(prev => [...prev, { id: Date.now() + 1, role: 'ai', content: reply, via }])
+      })
+      .catch(err => {
+        setMessages(prev => [...prev, {
+          id: Date.now() + 1, role: 'ai',
+          content: buildErrMsg(err)
+        }])
+      })
+      .finally(() => setLoading(false))
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [promoProduct])
 
-  async function sendMessage(text, autoLabel = false) {
-    const content = autoLabel ? `📦 Buat promo untuk: ${autoLabel}` : text
+  /* ── Manual send ── */
+  async function sendMessage(text) {
     if (!text.trim()) return
-
-    const userMsg = { id: Date.now(), role: 'user', content }
+    const userMsg = { id: Date.now(), role: 'user', content: text }
     setMessages(prev => [...prev, userMsg])
     setInput('')
     setLoading(true)
-
     try {
       const { text: reply, via } = await sendToAI(text)
-      setMessages(prev => [...prev, {
-        id: Date.now() + 1, role: 'ai', content: reply, via
-      }])
+      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'ai', content: reply, via }])
     } catch (err) {
-      const status = err?.response?.status
-      const geminiErrBody = err?.response?.data?.error?.message ?? ''
-      const errMsg = status === 429
-        ? '⚠️ Kuota API Gemini habis hari ini.\n\nSolusi: Buka https://aistudio.google.com/app/apikey → buat project baru → copy API Key baru → update GEMINI_API_KEY di src/config/langflow.js'
-        : status === 400
-        ? `❌ API Key Gemini tidak valid.\n\nSilakan update GEMINI_API_KEY di src/config/langflow.js\n\nDetail: ${geminiErrBody}`
-        : status === 403
-        ? '❌ API Key tidak punya akses. Pastikan Gemini API sudah diaktifkan di Google Cloud Console.'
-        : err?.code === 'ECONNABORTED' || err?.code === 'ERR_NETWORK'
-        ? '⏱️ Koneksi timeout atau LangFlow tidak berjalan.\n\nPastikan LangFlow Desktop aktif di port 7860, lalu coba lagi.'
-        : `❌ Gagal menghubungi AI.\n\nPastikan:\n1. LangFlow Desktop berjalan di port 7860\n2. GEMINI_API_KEY masih valid\n\nError: ${err?.message ?? ''}`
-      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'ai', content: errMsg }])
+      setMessages(prev => [...prev, { id: Date.now() + 1, role: 'ai', content: buildErrMsg(err) }])
     } finally {
       setLoading(false)
     }
+  }
+
+  function buildErrMsg(err) {
+    const status = err?.response?.status
+    if (status === 429)
+      return '⚠️ Kuota API Gemini habis hari ini.\n\nSolusi: Buka https://aistudio.google.com/app/apikey → buat project baru → copy API Key baru → update GEMINI_API_KEY di src/config/langflow.js'
+    if (status === 400)
+      return `❌ API Key Gemini tidak valid.\n\nDetail: ${err?.response?.data?.error?.message ?? ''}`
+    if (status === 403)
+      return '❌ API Key tidak punya akses. Pastikan Gemini API sudah diaktifkan di Google Cloud Console.'
+    if (err?.code === 'ECONNABORTED' || err?.code === 'ERR_NETWORK')
+      return '⏱️ Koneksi timeout atau LangFlow tidak berjalan.\n\nPastikan LangFlow Desktop aktif di port 7860, lalu coba lagi.'
+    return `❌ Gagal menghubungi AI.\n\nError: ${err?.message ?? ''}`
   }
 
   function handleKeyDown(e) {
@@ -216,17 +405,23 @@ export default function AgentChatWidget({ promoProduct, onPromoClear }) {
 
       {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-24 right-6 z-50 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden"
-          style={{ maxHeight: '70vh' }}>
-          {/* Panel header */}
-          <div className="bg-blue-600 px-4 py-3 flex items-center gap-3">
-            <div className="bg-blue-500 p-1.5 rounded-full">
-              <Bot size={16} className="text-white" />
+        <div
+          className="fixed bottom-24 right-6 z-50 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden"
+          style={{ maxHeight: '70vh' }}
+        >
+          {/* Header */}
+          <div className="bg-blue-600 px-4 py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-500 p-1.5 rounded-full">
+                <Bot size={16} className="text-white" />
+              </div>
+              <div>
+                <p className="text-white text-sm font-semibold">Smart Retail AI</p>
+                <p className="text-blue-200 text-xs">Dynamic Pricing · CRM Promo</p>
+              </div>
             </div>
-            <div>
-              <p className="text-white text-sm font-semibold">Smart Retail AI</p>
-              <p className="text-blue-200 text-xs">Asisten Inventaris UMKM</p>
-            </div>
+            {/* CRM segment picker */}
+            <CrmPicker value={crmSegment} onChange={setCrmSegment} />
           </div>
 
           {/* Messages */}

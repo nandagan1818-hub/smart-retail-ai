@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { getProductStatus } from '../utils/kpi'
-import { Search, Megaphone, Download, Trash2 } from 'lucide-react'
+import { Search, Megaphone, Download, Trash2, ScanText } from 'lucide-react'
 
 const calcMargin = (p) => p.hpp ? (((p.hargaJual - p.hpp) / p.hargaJual) * 100).toFixed(1) : '-'
 
@@ -40,7 +40,7 @@ function StatusBadge({ status }) {
   )
 }
 
-export default function ActionTable({ items = [], categories = ['Semua'], onCreatePromo, onDelete, onDeleteMany }) {
+export default function ActionTable({ items = [], categories = ['Semua'], onCreatePromo, onDelete, onDeleteMany, onOpenOcr }) {
   const [search, setSearch]       = useState('')
   const [category, setCategory]   = useState('Semua')
   const [selected, setSelected]   = useState(new Set())
@@ -103,6 +103,14 @@ export default function ActionTable({ items = [], categories = ['Semua'], onCrea
               Hapus ({selected.size})
             </button>
           )}
+          {/* Scan Faktur OCR */}
+          <button
+            onClick={() => onOpenOcr?.()}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-colors flex-shrink-0"
+          >
+            <ScanText size={13} />
+            Scan Faktur (AI OCR)
+          </button>
           {/* Export CSV */}
           <button
             onClick={() => exportCSV(filtered)}

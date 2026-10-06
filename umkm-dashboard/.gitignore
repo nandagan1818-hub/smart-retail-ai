@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment secrets — jangan commit ke git
+.env
+.env.local
+.env.*.local
