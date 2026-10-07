@@ -22,7 +22,6 @@ import {
 } from 'lucide-react'
 
 const ROLE_COLOR = {
-  Admin:   'bg-blue-100 text-blue-700',
   Kasir:   'bg-emerald-100 text-emerald-700',
   Pemilik: 'bg-purple-100 text-purple-700',
 }
@@ -166,17 +165,15 @@ export default function App() {
             Pemasok & PO
           </button>
 
-          {/* POS — hanya Admin/Kasir */}
-          {(user.role === 'Admin' || user.role === 'Kasir') && (
-            <button
-              onClick={() => setActivePage('pos')}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors
-                ${activePage === 'pos' ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600 hover:bg-gray-50'}`}
-            >
-              <MonitorSmartphone size={16} />
-              Point of Sale (POS)
-            </button>
-          )}
+          {/* POS — semua role bisa akses */}
+          <button
+            onClick={() => setActivePage('pos')}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors
+              ${activePage === 'pos' ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600 hover:bg-gray-50'}`}
+          >
+            <MonitorSmartphone size={16} />
+            Point of Sale (POS)
+          </button>
 
           {/* Log Aktivitas */}
           <button

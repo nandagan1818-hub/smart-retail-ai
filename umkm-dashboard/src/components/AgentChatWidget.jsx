@@ -24,10 +24,9 @@ function calcDynamicDiscount(product) {
     expiredDays   = Math.ceil((expDate - REFERENCE_DATE) / (1000 * 60 * 60 * 24))
   }
 
-  // Stok ratio vs penjualan bulanan
-  const stokRatio = product.terjualPerBulan > 0
-    ? product.stok / product.terjualPerBulan
-    : 99
+  // Stok ratio vs estimasi laku bulanan
+  const estimasi   = product.estimasiLaku ?? product.terjualPerBulan ?? 0
+  const stokRatio  = estimasi > 0 ? product.stok / estimasi : 99
 
   let discountPct = 0
   let label       = 'Tidak ada diskon'
@@ -68,12 +67,12 @@ function calcDynamicDiscount(product) {
   if (stokRatio > 5 && discountPct < 25) {
     discountPct = 25
     label       = `Diskon 25% — Dead-Stock (${stokRatio.toFixed(1)}x stok bulanan)`
-    reason      = `Stok ${product.stok} pcs, terjual hanya ${product.terjualPerBulan}/bulan (${stokRatio.toFixed(1)}× overstok)`
+    reason      = `Stok ${product.stok} pcs, estimasi laku hanya ${estimasi}/bulan (${stokRatio.toFixed(1)}× overstok)`
     urgency     = urgency === 'low' ? 'medium' : urgency
   } else if (stokRatio > 3 && discountPct < 15) {
     discountPct = 15
     label       = `Diskon 15% — Stok Menumpuk`
-    reason      = `Stok ${product.stok} pcs, terjual ${product.terjualPerBulan}/bulan (${stokRatio.toFixed(1)}× overstok)`
+    reason      = `Stok ${product.stok} pcs, estimasi laku ${estimasi}/bulan (${stokRatio.toFixed(1)}× overstok)`
     urgency     = urgency === 'low' ? 'medium' : urgency
   }
 
@@ -302,7 +301,7 @@ export default function AgentChatWidget({ promoProduct, onPromoClear }) {
       `- Nama       : ${product.nama}`,
       `- Kategori   : ${product.kategori}`,
       `- Stok       : ${product.stok} pcs`,
-      `- Terjual/Bln: ${product.terjualPerBulan} pcs`,
+      `- Est. Laku/Bln: ${product.estimasiLaku ?? 0} pcs`,
       `- Harga Jual : Rp ${product.hargaJual.toLocaleString('id-ID')}`,
       `- HPP        : Rp ${(product.hpp ?? 0).toLocaleString('id-ID')}`,
       `- Tgl Expired: ${product.expired ?? 'tidak ada'}`,

@@ -26,7 +26,6 @@ export default function LoginPage({ onLogin }) {
   }
 
   const DEMO_USERS = [
-    { username: 'admin',   password: 'admin123',   role: 'Admin'   },
     { username: 'kasir',   password: 'kasir123',   role: 'Kasir'   },
     { username: 'pemilik', password: 'pemilik123', role: 'Pemilik' },
   ]

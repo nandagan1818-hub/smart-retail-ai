@@ -20,7 +20,7 @@ Untuk setiap produk yang ditemukan, kembalikan data dalam format JSON array yang
     "stok": angka jumlah unit yang dibeli (integer),
     "hpp": angka harga beli per unit dalam Rupiah (integer, tanpa simbol),
     "hargaJual": angka estimasi harga jual (hpp × 1.25, dibulatkan ke ratusan terdekat),
-    "terjualPerBulan": 10,
+    "estimasiLaku": 10,
     "stokMin": 5,
     "expired": "YYYY-MM-DD atau null jika tidak ada"
   }
@@ -211,7 +211,7 @@ export default function OcrFakturModal({ onAddMany, onClose }) {
         stok:            Math.max(1, parseInt(item.stok)       || 1),
         hpp:             Math.max(0, parseInt(item.hpp)        || 0),
         hargaJual:       Math.max(0, parseInt(item.hargaJual)  || 0),
-        terjualPerBulan: parseInt(item.terjualPerBulan)        || 10,
+        estimasiLaku:    parseInt(item.estimasiLaku ?? item.terjualPerBulan) || 10,
         stokMin:         parseInt(item.stokMin)                || 5,
         expired:         item.expired && item.expired !== 'null' ? item.expired : null,
       }))

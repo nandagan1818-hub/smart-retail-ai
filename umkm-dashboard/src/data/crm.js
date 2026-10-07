@@ -36,12 +36,5 @@ export const CRM_SEGMENTS = {
   },
 }
 
-// Contoh data pelanggan (demo)
-export const CUSTOMERS = [
-  { id: 1, nama: 'Ibu Sari',    segmen: 'setia',   lastBuy: '2026-10-28', totalBelanja: 1_250_000 },
-  { id: 2, nama: 'Pak Budi',    segmen: 'setia',   lastBuy: '2026-10-25', totalBelanja: 980_000  },
-  { id: 3, nama: 'Ibu Dewi',    segmen: 'berisiko',lastBuy: '2026-09-15', totalBelanja: 560_000  },
-  { id: 4, nama: 'Mas Andi',    segmen: 'berisiko',lastBuy: '2026-09-02', totalBelanja: 340_000  },
-  { id: 5, nama: 'Ibu Rina',    segmen: 'baru',    lastBuy: '2026-10-30', totalBelanja: 85_000   },
-  { id: 6, nama: 'Pak Hendra',  segmen: 'baru',    lastBuy: '2026-10-29', totalBelanja: 120_000  },
-]
+// CUSTOMERS array dihapus — tidak diperlukan untuk toko kecil.
+// Segmentasi CRM cukup digunakan sebagai panduan teks promo (CRM_SEGMENTS di atas).

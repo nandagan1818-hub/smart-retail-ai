@@ -8,7 +8,7 @@ const KATEGORI_OPTIONS = [
 
 const EMPTY_FORM = {
   nama: '', kategori: 'Minuman', stok: '',
-  hargaJual: '', hpp: '', terjualPerBulan: '', expired: ''
+  hargaJual: '', hpp: '', stokMin: '', expired: ''
 }
 
 export default function AddProductModal({ onAdd, onClose }) {
@@ -17,12 +17,11 @@ export default function AddProductModal({ onAdd, onClose }) {
 
   function validate() {
     const e = {}
-    if (!form.nama.trim())               e.nama           = 'Nama produk wajib diisi'
-    if (!form.stok || form.stok <= 0)    e.stok           = 'Stok harus lebih dari 0'
+    if (!form.nama.trim())                      e.nama      = 'Nama produk wajib diisi'
+    if (!form.stok || form.stok <= 0)           e.stok      = 'Stok harus lebih dari 0'
     if (!form.hargaJual || form.hargaJual <= 0) e.hargaJual = 'Harga jual harus lebih dari 0'
-    if (!form.hpp || form.hpp <= 0)      e.hpp            = 'HPP (Harga Beli) wajib diisi'
-    if (Number(form.hpp) >= Number(form.hargaJual)) e.hpp = 'HPP harus lebih kecil dari Harga Jual'
-    if (!form.terjualPerBulan || form.terjualPerBulan < 0) e.terjualPerBulan = 'Terjual/bulan tidak valid'
+    if (!form.hpp || form.hpp <= 0)             e.hpp       = 'HPP (Harga Beli) wajib diisi'
+    if (Number(form.hpp) >= Number(form.hargaJual)) e.hpp   = 'HPP harus lebih kecil dari Harga Jual'
     return e
   }
 
@@ -36,13 +35,14 @@ export default function AddProductModal({ onAdd, onClose }) {
     const e2 = validate()
     if (Object.keys(e2).length > 0) { setErrors(e2); return }
     onAdd({
-      nama:            form.nama.trim(),
-      kategori:        form.kategori,
-      stok:            parseInt(form.stok),
-      hargaJual:       parseInt(form.hargaJual),
-      hpp:             parseInt(form.hpp),
-      terjualPerBulan: parseInt(form.terjualPerBulan),
-      expired:         form.expired || null,
+      nama:         form.nama.trim(),
+      kategori:     form.kategori,
+      stok:         parseInt(form.stok),
+      hargaJual:    parseInt(form.hargaJual),
+      hpp:          parseInt(form.hpp),
+      stokMin:      form.stokMin ? parseInt(form.stokMin) : 5,
+      estimasiLaku: 10,   // default konservatif — bisa diupdate manual
+      expired:      form.expired || null,
     })
     onClose()
   }
@@ -91,7 +91,7 @@ export default function AddProductModal({ onAdd, onClose }) {
             </select>
           </div>
 
-          {/* Stok & Terjual */}
+          {/* Stok & Stok Minimum */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Stok Saat Ini <span className="text-red-500">*</span></label>
@@ -105,15 +105,14 @@ export default function AddProductModal({ onAdd, onClose }) {
               {errors.stok && <p className="text-xs text-red-500 mt-1">{errors.stok}</p>}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Terjual/Bulan <span className="text-red-500">*</span></label>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Stok Minimum <span className="text-gray-400 font-normal">(alert reorder)</span></label>
               <input
                 type="number" min="0"
-                value={form.terjualPerBulan}
-                onChange={e => handleChange('terjualPerBulan', e.target.value)}
-                placeholder="0"
-                className={`w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200 ${errors.terjualPerBulan ? 'border-red-300' : 'border-gray-200'}`}
+                value={form.stokMin}
+                onChange={e => handleChange('stokMin', e.target.value)}
+                placeholder="5"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
-              {errors.terjualPerBulan && <p className="text-xs text-red-500 mt-1">{errors.terjualPerBulan}</p>}
             </div>
           </div>
 

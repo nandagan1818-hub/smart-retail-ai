@@ -4,15 +4,19 @@ import { inventory as defaultInventory } from '../data/inventory'
 const REFERENCE_DATE = new Date('2026-10-01')
 const END_OF_MONTH   = new Date('2026-10-31')
 
+// Gunakan estimasiLaku (menggantikan terjualPerBulan yang dihapus dari schema)
+function laku(p) { return p.estimasiLaku ?? p.terjualPerBulan ?? 0 }
+
 export function getProductStatus(product) {
-  const { stok, terjualPerBulan, expired, stokMin } = product
+  const { stok, stokMin, expired } = product
   if (expired) {
     const expDate = new Date(expired)
     if (expDate <= END_OF_MONTH) return 'expired'
     const daysUntilExpiry = (expDate - REFERENCE_DATE) / (1000 * 60 * 60 * 24)
     if (daysUntilExpiry <= 30) return 'hampir-expired'
   }
-  if (terjualPerBulan > 0 && stok / terjualPerBulan > 3) return 'dead-stock'
+  const lk = laku(product)
+  if (lk > 0 && stok / lk > 3) return 'dead-stock'
   if (stokMin && stok <= stokMin) return 'low-stock'
   return 'normal'
 }
@@ -45,8 +49,8 @@ export function getExpiredThisMonthCount(items = defaultInventory) {
 export function getHealthScore(items = defaultInventory) {
   const total = items.length
   if (total === 0) return 100
-  const expired      = getExpiredThisMonthCount(items)
-  const deadStock    = getDeadStockCount(items)
+  const expired       = getExpiredThisMonthCount(items)
+  const deadStock     = getDeadStockCount(items)
   const hampirExpired = items.filter(p => getProductStatus(p) === 'hampir-expired').length
   const penalty = expired * 10 + deadStock * 5 + hampirExpired * 2
   return Math.max(0, Math.round(100 - (penalty / total) * 10))
@@ -57,7 +61,7 @@ export function getStockByCategory(items = defaultInventory) {
   items.forEach(p => {
     if (!map[p.kategori]) map[p.kategori] = { kategori: p.kategori, stok: 0, terjual: 0 }
     map[p.kategori].stok   += p.stok
-    map[p.kategori].terjual += p.terjualPerBulan
+    map[p.kategori].terjual += laku(p)
   })
   return Object.values(map)
 }
@@ -66,23 +70,23 @@ export function getStatusDistribution(items = defaultInventory) {
   const counts = { normal: 0, 'dead-stock': 0, 'hampir-expired': 0, expired: 0 }
   items.forEach(p => { counts[getProductStatus(p)]++ })
   return [
-    { name: 'Normal',         value: counts.normal,           color: '#10B981' },
-    { name: 'Dead-Stock',     value: counts['dead-stock'],    color: '#F59E0B' },
-    { name: 'Hampir Expired', value: counts['hampir-expired'],color: '#FBBF24' },
-    { name: 'Expired',        value: counts.expired,          color: '#EF4444' },
+    { name: 'Normal',         value: counts.normal,            color: '#10B981' },
+    { name: 'Dead-Stock',     value: counts['dead-stock'],     color: '#F59E0B' },
+    { name: 'Hampir Expired', value: counts['hampir-expired'], color: '#FBBF24' },
+    { name: 'Expired',        value: counts.expired,           color: '#EF4444' },
   ]
 }
 
 // ── Finansial (HPP & P&L) ─────────────────────────────────────
 
-// Total pendapatan kotor = Σ (hargaJual × terjualPerBulan)
+// Pendapatan estimasi = Σ (hargaJual × estimasiLaku)
 export function getTotalPendapatan(items = defaultInventory) {
-  return items.reduce((sum, p) => sum + p.hargaJual * p.terjualPerBulan, 0)
+  return items.reduce((sum, p) => sum + p.hargaJual * laku(p), 0)
 }
 
-// Total HPP = Σ (hpp × terjualPerBulan)
+// Total HPP = Σ (hpp × estimasiLaku)
 export function getTotalHPP(items = defaultInventory) {
-  return items.reduce((sum, p) => sum + (p.hpp ?? 0) * p.terjualPerBulan, 0)
+  return items.reduce((sum, p) => sum + (p.hpp ?? 0) * laku(p), 0)
 }
 
 // Laba bersih = pendapatan - HPP
@@ -103,12 +107,11 @@ export function getKerugianProdukBermasalah(items = defaultInventory) {
 
 // Data tren bulanan untuk line chart (6 bulan ke belakang dari Oktober 2026)
 export function getTrendFinansial(items = defaultInventory) {
-  const bulan = ['Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt']
-  // Simulasi tren: bulan ini = aktual, sebelumnya ~variasi ±10-15%
+  const bulan  = ['Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt']
+  const faktor = [0.78, 0.83, 0.88, 0.92, 0.96, 1.00]
   const pendapatanBulanIni = getTotalPendapatan(items)
   const hppBulanIni        = getTotalHPP(items)
   const labaBulanIni       = pendapatanBulanIni - hppBulanIni
-  const faktor = [0.78, 0.83, 0.88, 0.92, 0.96, 1.00]
   return bulan.map((bln, i) => ({
     bulan: bln,
     pendapatan: Math.round(pendapatanBulanIni * faktor[i]),

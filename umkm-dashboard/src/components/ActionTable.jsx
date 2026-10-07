@@ -5,9 +5,9 @@ import { Search, Megaphone, Download, Trash2, ScanText } from 'lucide-react'
 const calcMargin = (p) => p.hpp ? (((p.hargaJual - p.hpp) / p.hargaJual) * 100).toFixed(1) : '-'
 
 function exportCSV(data) {
-  const headers = ['Nama Produk', 'Kategori', 'Stok', 'Terjual/Bulan', 'Harga Jual', 'HPP', 'Margin (%)', 'Expired', 'Status']
+  const headers = ['Nama Produk', 'Kategori', 'Stok', 'Stok Min', 'Harga Jual', 'HPP', 'Margin (%)', 'Expired', 'Status']
   const rows = data.map(p => [
-    p.nama, p.kategori, p.stok, p.terjualPerBulan,
+    p.nama, p.kategori, p.stok, p.stokMin ?? '-',
     p.hargaJual, p.hpp ?? '-', calcMargin(p), p.expired ?? '-', getProductStatus(p)
   ])
   const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n')
@@ -159,7 +159,6 @@ export default function ActionTable({ items = [], categories = ['Semua'], onCrea
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Kategori</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Stok</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Stok Min</th>
-              <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Terjual/Bln</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Harga Jual</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">HPP</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Margin</th>
@@ -187,7 +186,6 @@ export default function ActionTable({ items = [], categories = ['Semua'], onCrea
                   <td className="px-4 py-3 text-gray-500">{p.kategori}</td>
                   <td className="px-4 py-3 text-right font-mono text-gray-700">{p.stok}</td>
                   <td className="px-4 py-3 text-right font-mono text-gray-500">{p.stokMin ?? '—'}</td>
-                  <td className="px-4 py-3 text-right font-mono text-gray-700">{p.terjualPerBulan}</td>
                   <td className="px-4 py-3 text-right font-mono text-gray-700">{formatRupiah(p.hargaJual)}</td>
                   <td className="px-4 py-3 text-right font-mono text-gray-500">{p.hpp ? formatRupiah(p.hpp) : '—'}</td>
                   <td className="px-4 py-3 text-right">
