@@ -10,6 +10,7 @@ import AddProductModal from '../components/AddProductModal'
 import OcrFakturModal from '../components/OcrFakturModal'
 import PemasokPage from './PemasokPage'
 import POSPage from './POSPage'
+import SettingsPage from './SettingsPage'
 import ActivityLogPage from './ActivityLogPage'
 import LoginPage from './LoginPage'
 import { useAuth } from '../hooks/useAuth'
@@ -18,7 +19,7 @@ import { usePemasok } from '../hooks/usePemasok'
 import { useActivityLog, LOG_ACTIONS } from '../hooks/useActivityLog'
 import {
   LayoutDashboard, ShoppingBag, LogOut, PackagePlus,
-  Truck, Users, MonitorSmartphone, ClipboardList
+  Truck, Users, MonitorSmartphone, ClipboardList, Settings2,
 } from 'lucide-react'
 
 const ROLE_COLOR = {
@@ -32,12 +33,26 @@ export default function App() {
   const { pemasokList, addPemasok, deletePemasok, poList, addPO, updatePOStatus, deletePO } = usePemasok()
   const { logs, addLog, clearLogs } = useActivityLog()
 
-  const [activePage, setActivePage]     = useState('dashboard')
+  // Kasir mulai di POS; Pemilik mulai di Dashboard
+  const [activePage, setActivePage]     = useState(() =>
+    (() => { try { return JSON.parse(sessionStorage.getItem('smart_retail_session') ?? '{}') } catch { return {} } })().role === 'Kasir' ? 'pos' : 'dashboard'
+  )
   const [promoProduct, setPromoProduct] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showOcrModal, setShowOcrModal] = useState(false)
   const [poProduct, setPOProduct]       = useState(null)
   const [clearConfirm, setClearConfirm] = useState(false)
+
+  // Pengaturan toko — disimpan di localStorage agar persisten
+  const [settings, setSettings] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('smart_retail_settings') ?? '{}') }
+    catch { return {} }
+  })
+  function saveSettings(next) {
+    const merged = { ...settings, ...next }
+    setSettings(merged)
+    localStorage.setItem('smart_retail_settings', JSON.stringify(merged))
+  }
 
   if (!user) return <LoginPage onLogin={(u, p) => {
     const ok = login(u, p)
@@ -125,6 +140,7 @@ export default function App() {
     pemasok:   'Pemasok & Purchase Order',
     pos:       'Point of Sale (POS)',
     log:       'Log Aktivitas Sistem',
+    settings:  'Pengaturan',
   }
 
   return (
@@ -145,58 +161,80 @@ export default function App() {
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1">
-          {/* Dashboard */}
-          <button
-            onClick={() => setActivePage('dashboard')}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors
-              ${activePage === 'dashboard' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <LayoutDashboard size={16} />
-            Dashboard
-          </button>
 
-          {/* Pemasok */}
-          <button
-            onClick={() => setActivePage('pemasok')}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors
-              ${activePage === 'pemasok' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <Truck size={16} />
-            Pemasok & PO
-          </button>
-
-          {/* POS — semua role bisa akses */}
+          {/* POS — utama, tampil pertama untuk Kasir */}
           <button
             onClick={() => setActivePage('pos')}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors
               ${activePage === 'pos' ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600 hover:bg-gray-50'}`}
           >
             <MonitorSmartphone size={16} />
-            Point of Sale (POS)
+            Point of Sale
           </button>
 
-          {/* Log Aktivitas */}
-          <button
-            onClick={() => setActivePage('log')}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold transition-colors
-              ${activePage === 'log' ? 'bg-gray-100 text-gray-800' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <ClipboardList size={16} />
-            <span className="flex-1 text-left">Log Aktivitas</span>
-            {logs.length > 0 && (
-              <span className="text-xs bg-gray-200 text-gray-600 font-bold px-1.5 py-0.5 rounded-full leading-none">
-                {logs.length}
-              </span>
-            )}
-          </button>
+          {/* Dashboard — hanya Pemilik */}
+          {user.role === 'Pemilik' && (
+            <button
+              onClick={() => setActivePage('dashboard')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors
+                ${activePage === 'dashboard' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+              <LayoutDashboard size={16} />
+              Dashboard
+            </button>
+          )}
 
-          {/* Tambah Produk */}
+          {/* Pemasok — hanya Pemilik */}
+          {user.role === 'Pemilik' && (
+            <button
+              onClick={() => setActivePage('pemasok')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors
+                ${activePage === 'pemasok' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+              <Truck size={16} />
+              Pemasok & PO
+            </button>
+          )}
+
+          {/* Log Aktivitas — hanya Pemilik */}
+          {user.role === 'Pemilik' && (
+            <button
+              onClick={() => setActivePage('log')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors
+                ${activePage === 'log' ? 'bg-gray-100 text-gray-800' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+              <ClipboardList size={16} />
+              <span className="flex-1 text-left">Log Aktivitas</span>
+              {logs.length > 0 && (
+                <span className="text-xs bg-gray-200 text-gray-600 font-bold px-1.5 py-0.5 rounded-full leading-none">
+                  {logs.length}
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* Tambah Produk — hanya Pemilik */}
+          {user.role === 'Pemilik' && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-600 hover:bg-gray-50 text-sm font-bold transition-colors"
+            >
+              <PackagePlus size={16} />
+              Tambah Produk
+            </button>
+          )}
+
+          {/* divider */}
+          <div className="border-t border-gray-100 my-2" />
+
+          {/* Pengaturan — semua role */}
           <button
-            onClick={() => setShowAddModal(true)}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 text-sm font-medium transition-colors"
+            onClick={() => setActivePage('settings')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors
+              ${activePage === 'settings' ? 'bg-gray-100 text-gray-800' : 'text-gray-600 hover:bg-gray-50'}`}
           >
-            <PackagePlus size={16} />
-            Tambah Produk
+            <Settings2 size={16} />
+            Pengaturan
           </button>
         </nav>
 
@@ -343,6 +381,7 @@ export default function App() {
               onReduceStock={loggedReduceStock}
               onCheckoutLog={loggedPOSCheckout}
               cashierName={user.name}
+              storeName={settings.storeName}
             />
           )}
 
@@ -351,6 +390,15 @@ export default function App() {
             <ActivityLogPage
               logs={logs}
               onClear={() => setClearConfirm(true)}
+            />
+          )}
+
+          {/* ── PENGATURAN ── */}
+          {activePage === 'settings' && (
+            <SettingsPage
+              settings={settings}
+              onSave={saveSettings}
+              currentUser={user}
             />
           )}
         </main>
