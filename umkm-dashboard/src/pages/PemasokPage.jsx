@@ -76,7 +76,7 @@ function ModalPO({ pemasokList, defaultProduct, onAdd, onClose }) {
       ? [{ nama: defaultProduct.nama, qty: defaultProduct.stokMin ?? 10, hpp: defaultProduct.hpp ?? 0 }]
       : [{ nama: '', qty: 1, hpp: 0 }]
   )
-  const [tanggal, setTanggal]   = useState(new Date().toISOString().slice(0, 10))
+  const [tanggal, setTanggal]   = useState(() => new Date().toISOString().slice(0, 10))
   const [catatan, setCatatan]   = useState('')
 
   const pemasok = pemasokList.find(p => p.id === Number(pemasokId))

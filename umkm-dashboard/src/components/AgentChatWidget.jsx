@@ -1,9 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import axios from 'axios'
-import {
-  LANGFLOW_BASE_URL, LANGFLOW_FLOW_ID, LANGFLOW_API_KEY,
-  GEMINI_API_KEY, GEMINI_MODELS, SYSTEM_PROMPT, AI_MODE
-} from '../config/langflow'
+import { AI_MODE } from '../config/langflow'
 import { CRM_SEGMENTS } from '../data/crm'
 import {
   MessageCircle, X, Send, Bot, User, Loader2, Copy, Check,
@@ -93,48 +90,20 @@ function calcDynamicDiscount(product) {
   }
 }
 
-/* ─── AI helpers ─────────────────────────────────────── */
-async function callLangflow(text) {
-  const url = `${LANGFLOW_BASE_URL}/api/v1/run/${LANGFLOW_FLOW_ID}?stream=false`
-  const res = await axios.post(
-    url,
-    { input_value: text, output_type: 'chat', input_type: 'chat' },
-    {
-      headers: { 'x-api-key': LANGFLOW_API_KEY, 'Content-Type': 'application/json' },
-      timeout: 60000,
-    }
-  )
-  if (res.data?.detail) throw new Error(`LangFlow error: ${res.data.detail}`)
-  const out = res.data?.outputs?.[0]?.outputs?.[0]
-  const txt = out?.results?.message?.text ?? out?.messages?.[0]?.message ?? ''
-  if (!txt) throw new Error('empty_response')
-  return txt
+/* ─── AI helpers (semua panggilan ke server-side API route) ── */
+async function callGemini(text) {
+  const res = await axios.post('/api/chat', { text }, { timeout: 30000 })
+  return { text: res.data.text, model: res.data.model }
 }
 
-async function callGeminiDirect(text) {
-  let lastErr
-  for (const model of GEMINI_MODELS) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`
-      const res = await axios.post(url, {
-        system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: [{ role: 'user', parts: [{ text }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
-      }, { timeout: 30000 })
-      const reply = res.data?.candidates?.[0]?.content?.parts?.[0]?.text
-      if (reply) return { text: reply, model }
-    } catch (err) {
-      lastErr = err
-      const status = err?.response?.status
-      if (status !== 429 && status !== 503 && status !== 404) throw err
-    }
-  }
-  throw lastErr
+async function callLangflow(text) {
+  const res = await axios.post('/api/langflow', { text }, { timeout: 65000 })
+  return res.data.text
 }
 
 async function sendToAI(text) {
   if (AI_MODE === 'gemini-only') {
-    const { text: reply, model } = await callGeminiDirect(text)
+    const { text: reply, model } = await callGemini(text)
     return { text: reply, via: `Gemini (${model})` }
   }
   try {
@@ -142,7 +111,7 @@ async function sendToAI(text) {
     return { text: txt, via: 'LangFlow' }
   } catch (lfErr) {
     console.warn('[LangFlow gagal, coba Gemini]', lfErr?.message)
-    const { text: reply, model } = await callGeminiDirect(text)
+    const { text: reply, model } = await callGemini(text)
     return { text: reply, via: `Gemini (${model})` }
   }
 }
@@ -373,15 +342,18 @@ export default function AgentChatWidget({ promoProduct, onPromoClear }) {
 
   function buildErrMsg(err) {
     const status = err?.response?.status
+    const serverMsg = err?.response?.data?.error ?? ''
     if (status === 429)
-      return '⚠️ Kuota API Gemini habis hari ini.\n\nSolusi: Buka https://aistudio.google.com/app/apikey → buat project baru → copy API Key baru → update GEMINI_API_KEY di src/config/langflow.js'
+      return '⚠️ Kuota API Gemini habis hari ini.\n\nHubungi administrator untuk memperbarui API Key di server.'
     if (status === 400)
-      return `❌ API Key Gemini tidak valid.\n\nDetail: ${err?.response?.data?.error?.message ?? ''}`
+      return `❌ Konfigurasi API tidak valid.\n\nDetail: ${serverMsg}`
     if (status === 403)
-      return '❌ API Key tidak punya akses. Pastikan Gemini API sudah diaktifkan di Google Cloud Console.'
+      return '❌ API Key tidak punya akses. Hubungi administrator.'
+    if (status === 503)
+      return '⏱️ Layanan AI tidak tersedia saat ini. Coba lagi beberapa saat.'
     if (err?.code === 'ECONNABORTED' || err?.code === 'ERR_NETWORK')
-      return '⏱️ Koneksi timeout atau LangFlow tidak berjalan.\n\nPastikan LangFlow Desktop aktif di port 7860, lalu coba lagi.'
-    return `❌ Gagal menghubungi AI.\n\nError: ${err?.message ?? ''}`
+      return '⏱️ Koneksi timeout. Pastikan server berjalan dan coba lagi.'
+    return `❌ Gagal menghubungi AI.\n\nError: ${(serverMsg || err?.message) ?? ''}`
   }
 
   function handleKeyDown(e) {

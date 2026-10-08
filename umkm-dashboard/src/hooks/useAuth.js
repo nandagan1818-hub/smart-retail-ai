@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { USERS, SESSION_KEY } from '../config/auth'
 
 export function useAuth() {

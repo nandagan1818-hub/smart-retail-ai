@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { inventory as initialData, CATEGORIES as initialCategories } from '../data/inventory'
+import { inventory as initialData } from '../data/inventory'
 
 export function useInventory() {
   const [items, setItems] = useState(initialData)

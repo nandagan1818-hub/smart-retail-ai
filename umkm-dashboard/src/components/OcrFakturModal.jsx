@@ -1,69 +1,14 @@
 import { useState, useRef } from 'react'
 import axios from 'axios'
 import {
-  X, ScanText, Upload, ImageIcon, Loader2, CheckCircle2,
+  X, ScanText, ImageIcon, Loader2, CheckCircle2,
   AlertTriangle, Plus, Trash2, Edit3, RefreshCw
 } from 'lucide-react'
-import { GEMINI_API_KEY, GEMINI_MODELS } from '../config/langflow'
 
-/* ─── Gemini Vision OCR ──────────────────────────────── */
+/* ─── OCR via server-side API route ─────────────────── */
 async function runOCR(base64Image, mimeType) {
-  const prompt = `Kamu adalah sistem OCR untuk faktur pembelian toko retail Indonesia.
-
-Analisis gambar faktur/nota pembelian ini dan ekstrak semua baris produk yang ada.
-
-Untuk setiap produk yang ditemukan, kembalikan data dalam format JSON array yang VALID:
-[
-  {
-    "nama": "nama produk lengkap",
-    "kategori": "salah satu dari: Minuman, Makanan Pokok, Bumbu & Saus, Snack & Susu, Kebersihan, Lainnya",
-    "stok": angka jumlah unit yang dibeli (integer),
-    "hpp": angka harga beli per unit dalam Rupiah (integer, tanpa simbol),
-    "hargaJual": angka estimasi harga jual (hpp × 1.25, dibulatkan ke ratusan terdekat),
-    "estimasiLaku": 10,
-    "stokMin": 5,
-    "expired": "YYYY-MM-DD atau null jika tidak ada"
-  }
-]
-
-PENTING:
-- Jika ada informasi expired/kadaluarsa di faktur, gunakan format YYYY-MM-DD
-- Jika tidak ada expired, gunakan null
-- hpp adalah harga beli (harga dari supplier)
-- hargaJual adalah estimasimu (hpp × 1.25)
-- Kembalikan HANYA array JSON yang valid, tanpa markdown, tanpa penjelasan tambahan
-- Jika gambar bukan faktur atau tidak bisa dibaca, kembalikan array kosong: []`
-
-  let lastErr
-  for (const model of GEMINI_MODELS) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`
-      const res = await axios.post(url, {
-        contents: [{
-          parts: [
-            { text: prompt },
-            { inline_data: { mime_type: mimeType, data: base64Image } }
-          ]
-        }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 2048 },
-      }, { timeout: 60000 })
-
-      const raw = res.data?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-      // Strip markdown code fences if any
-      const cleaned = raw.replace(/```(?:json)?\n?/g, '').trim()
-      const parsed = JSON.parse(cleaned)
-      if (!Array.isArray(parsed)) throw new Error('Bukan array')
-      return parsed
-    } catch (err) {
-      lastErr = err
-      const status = err?.response?.status
-      if (status !== 429 && status !== 503 && status !== 404) {
-        // parse error or other — try next model once then throw
-        if (model === GEMINI_MODELS[GEMINI_MODELS.length - 1]) throw err
-      }
-    }
-  }
-  throw lastErr
+  const res = await axios.post('/api/ocr', { base64Image, mimeType }, { timeout: 65000 })
+  return res.data.items
 }
 
 /* ─── helpers ────────────────────────────────────────── */
@@ -78,10 +23,6 @@ function fileToBase64(file) {
     reader.onerror = reject
     reader.readAsDataURL(file)
   })
-}
-
-function fmtRp(n) {
-  return 'Rp ' + Number(n).toLocaleString('id-ID')
 }
 
 const KATEGORI_OPTIONS = [
@@ -220,11 +161,12 @@ export default function OcrFakturModal({ onAddMany, onClose }) {
       setStep('review')
     } catch (err) {
       const status = err?.response?.status
+      const serverMsg = err?.response?.data?.error ?? ''
       const msg = status === 429
-        ? 'Kuota API Gemini habis. Coba lagi besok atau ganti API key di src/config/langflow.js'
+        ? 'Kuota API Gemini habis. Hubungi administrator untuk memperbarui API Key.'
         : status === 400
-        ? 'API Key Gemini tidak valid. Cek GEMINI_API_KEY di src/config/langflow.js'
-        : `Gagal memproses gambar: ${err?.message ?? 'Unknown error'}`
+        ? `Konfigurasi API tidak valid. ${serverMsg}`
+        : `Gagal memproses gambar: ${(serverMsg || err?.message) ?? 'Unknown error'}`
       setError(msg)
       setStep('upload')
     }

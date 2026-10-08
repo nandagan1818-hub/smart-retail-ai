@@ -16,7 +16,7 @@ import LoginPage from './LoginPage'
 import { useAuth } from '../hooks/useAuth'
 import { useInventory } from '../hooks/useInventory'
 import { usePemasok } from '../hooks/usePemasok'
-import { useActivityLog, LOG_ACTIONS } from '../hooks/useActivityLog'
+import { useActivityLog } from '../hooks/useActivityLog'
 import {
   LayoutDashboard, ShoppingBag, LogOut, PackagePlus,
   Truck, Users, MonitorSmartphone, ClipboardList, Settings2,

@@ -100,10 +100,9 @@ fi
   open "http://localhost:$PORT"
 
   if $ONLINE_MODE; then
-    # Jalankan localtunnel di background
+    # Jalankan localtunnel di background (via npx — tidak perlu install lokal)
     TUNNEL_LOG="/tmp/lt_smartretail.log"
-    SCRIPT_DIR_INNER="$(cd "$(dirname "$0")" && pwd)"
-    "$SCRIPT_DIR_INNER/umkm-dashboard/node_modules/.bin/lt" \
+    npx --yes localtunnel@2 \
       --port "$PORT" --subdomain smartretailai-umkm > "$TUNNEL_LOG" 2>&1 &
     LT_PID=$!
 

@@ -6,14 +6,15 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
-    host: true,        // bind ke 0.0.0.0→ bisa diakses dari device lain & tunnel
+    host: true,         // bind ke 0.0.0.0 → bisa diakses dari device lain & tunnel
     port: 5173,
     allowedHosts: true, // izinkan semua host: localhost, IP lokal, tunnel (loca.lt, ngrok, dll)
     proxy: {
-      '/langflow-api': {
-        target: 'http://localhost:7860',  // proxy jalan di Mac kamu
+      // Proxy /api ke Vercel dev server (jalankan: vercel dev --listen 3000)
+      // saat pengembangan lokal tanpa vercel dev, fungsi-fungsi ini tidak berjalan.
+      '/api': {
+        target: 'http://localhost:3000',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/langflow-api/, ''),
       },
     },
     // Header bypass untuk localtunnel (panitia akses via loca.lt tidak kena "Click to Continue")

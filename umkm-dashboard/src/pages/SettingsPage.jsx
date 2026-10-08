@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  Store, Printer, KeyRound, CheckCircle2, Eye, EyeOff, ChevronRight,
+  Store, Printer, KeyRound, CheckCircle2, Eye, EyeOff,
 } from 'lucide-react'
 import { USERS } from '../config/auth'
 

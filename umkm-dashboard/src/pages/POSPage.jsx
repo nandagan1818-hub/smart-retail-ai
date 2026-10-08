@@ -36,7 +36,7 @@ function ReceiptModal({ lines, txId, onClose }) {
     w.document.write(
       `<!DOCTYPE html><html><head><title>Struk ${txId}</title>` +
       `<style>body{margin:0;padding:20px;font-family:monospace;font-size:13px;line-height:1.6}</style></head>` +
-      `<body><pre>${lines.join('\n')}</pre><script>window.onload=()=>{window.print();window.close()}<\/script></body></html>`
+      `<body><pre>${lines.join('\n')}</pre><script>window.onload=()=>{window.print();window.close()}</` + `script></body></html>`
     )
     w.document.close()
     w.focus()
