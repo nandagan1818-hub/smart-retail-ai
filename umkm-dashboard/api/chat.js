@@ -3,10 +3,8 @@
 // API key TIDAK pernah keluar ke browser — hanya ada di environment variable server.
 
 const GEMINI_MODELS = [
-  'gemini-2.0-flash-lite',
-  'gemini-2.0-flash',
-  'gemini-1.5-flash',
-  'gemini-1.5-pro',
+  'gemini-3.5-flash-lite',
+  'gemini-3.5-flash',
 ]
 
 const SYSTEM_PROMPT = `Kamu adalah Asisten Utama Toko UMKM "Smart Retail AI". 
