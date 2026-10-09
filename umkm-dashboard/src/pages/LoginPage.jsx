@@ -128,7 +128,7 @@ export default function LoginPage({ onLogin }) {
                       <span className="text-xs font-semibold text-gray-700">{u.username}</span>
                       <span className="text-xs text-gray-400 ml-2">— {u.role}</span>
                     </div>
-                    <span className="text-xs text-gray-400 font-mono">{u.password}</span>
+                    <span className="text-xs text-gray-400 font-mono">••••••••</span>
                   </button>
                 ))}
               </div>
