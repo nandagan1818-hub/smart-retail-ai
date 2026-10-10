@@ -20,26 +20,34 @@ import { useInventory } from '../hooks/useInventory'
 import { usePemasok } from '../hooks/usePemasok'
 import { useActivityLog } from '../hooks/useActivityLog'
 import { getSupplierIdForCategory } from '../utils/supplierLookup'
+import { canAccessPage, getHomePage, ROLE } from '../config/permissions'
 import {
   LayoutDashboard, ShoppingBag, LogOut, PackagePlus,
   Truck, Users, MonitorSmartphone, ClipboardList, Settings2, Info,
 } from 'lucide-react'
 
 const ROLE_COLOR = {
-  Kasir:   'bg-emerald-100 text-emerald-700',
-  Pemilik: 'bg-purple-100 text-purple-700',
+  [ROLE.CASHIER]: 'bg-emerald-100 text-emerald-700',
+  [ROLE.OWNER]:   'bg-purple-100 text-purple-700',
+}
+const ROLE_LABEL = {
+  [ROLE.CASHIER]: 'Kasir',
+  [ROLE.OWNER]: 'Pemilik',
 }
 
 export default function App() {
-  const { user, login, logout } = useAuth()
+  const { currentUser, login, logout } = useAuth()
   const { items, categories, addItem, addMany, deleteItem, deleteMany, reduceStock } = useInventory()
   const { pemasokList, addPemasok, deletePemasok, poList, addPO, updatePOStatus, deletePO } = usePemasok()
   const { logs, addLog, clearLogs } = useActivityLog()
 
-  // Kasir mulai di POS; Pemilik mulai di Dashboard
-  const [activePage, setActivePage]     = useState(() =>
-    (() => { try { return JSON.parse(sessionStorage.getItem('smart_retail_session') ?? '{}') } catch { return {} } })().role === 'Kasir' ? 'pos' : 'dashboard'
-  )
+  const [requestedPage, setRequestedPage] = useState(() => getHomePage(currentUser?.role))
+  const activePage = canAccessPage(currentUser?.role, requestedPage)
+    ? requestedPage
+    : getHomePage(currentUser?.role)
+  const navigateToPage = (page) => {
+    if (canAccessPage(currentUser?.role, page)) setRequestedPage(page)
+  }
   const [promoProduct, setPromoProduct] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showOcrModal, setShowOcrModal] = useState(false)
@@ -57,19 +65,20 @@ export default function App() {
     localStorage.setItem('smart_retail_settings', JSON.stringify(merged))
   }
 
-  if (!user) return <LoginPage onLogin={(u, p) => {
-    const ok = login(u, p)
-    if (ok) {
+  if (!currentUser) return <LoginPage onLogin={(u, p) => {
+    const signedInUser = login(u, p)
+    if (signedInUser) {
+      setRequestedPage(getHomePage(signedInUser.role))
       // login event will be logged after re-render; fire via timeout
       setTimeout(() => addLog('LOGIN', u, `Login berhasil sebagai pengguna "${u}"`), 0)
     }
-    return ok
+    return Boolean(signedInUser)
   }} />
 
   /* ── logged wrappers ── */
   function loggedAddItem(product) {
     addItem(product)
-    addLog('TAMBAH_PRODUK', user.name,
+    addLog('TAMBAH_PRODUK', currentUser.name,
       `Tambah produk baru: "${product.nama}" | Stok: ${product.stok} | Harga Jual: Rp ${Number(product.hargaJual).toLocaleString('id-ID')} | HPP: Rp ${Number(product.hpp).toLocaleString('id-ID')}`)
   }
 
@@ -78,65 +87,65 @@ export default function App() {
       ...product,
       supplierId: product.supplierId ?? getSupplierIdForCategory(product.kategori, pemasokList),
     })))
-    addLog('TAMBAH_OCR', user.name,
+    addLog('TAMBAH_OCR', currentUser.name,
       `OCR Faktur: ${products.length} produk ditambahkan — ${products.map(p => `"${p.nama}"`).join(', ')}`)
   }
 
   function loggedDeleteItem(id) {
     const p = items.find(i => i.id === id)
     deleteItem(id)
-    addLog('HAPUS_PRODUK', user.name,
+    addLog('HAPUS_PRODUK', currentUser.name,
       `Hapus produk: "${p?.nama ?? id}" | Stok saat hapus: ${p?.stok ?? '?'}`)
   }
 
   function loggedDeleteMany(ids) {
     const names = ids.map(id => items.find(i => i.id === id)?.nama ?? id)
     deleteMany(ids)
-    addLog('HAPUS_BANYAK', user.name,
+    addLog('HAPUS_BANYAK', currentUser.name,
       `Hapus ${ids.length} produk sekaligus: ${names.map(n => `"${n}"`).join(', ')}`)
   }
 
   function loggedReduceStock(id, qty) {
     const p = items.find(i => i.id === id)
     reduceStock(id, qty)
-    addLog('KURANGI_STOK', user.name,
+    addLog('KURANGI_STOK', currentUser.name,
       `Stok berkurang via POS: "${p?.nama ?? id}" −${qty} pcs (sisa: ${Math.max(0, (p?.stok ?? qty) - qty)})`)
   }
 
   function loggedPOSCheckout(cartSnapshot, payMethod, total) {
     const itemList = cartSnapshot.map(c => `${c.nama} ×${c.qty}`).join(', ')
-    addLog('TRANSAKSI_POS', user.name,
+    addLog('TRANSAKSI_POS', currentUser.name,
       `Transaksi POS selesai | Total: Rp ${total.toLocaleString('id-ID')} | Metode: ${payMethod} | Produk: ${itemList}`)
   }
 
   function loggedAddPO(po) {
     addPO(po)
-    addLog('BUAT_PO', user.name,
+    addLog('BUAT_PO', currentUser.name,
       `Buat PO baru ke pemasok "${po.pemasok ?? po.namaP ?? '?'}" | Produk: "${po.produk ?? po.namaProduk ?? '?'}" | Qty: ${po.qty ?? po.jumlah ?? '?'}`)
   }
 
   function loggedUpdatePOStatus(id, status) {
     const po = poList.find(p => p.id === id)
     updatePOStatus(id, status)
-    addLog('UPDATE_PO', user.name,
+    addLog('UPDATE_PO', currentUser.name,
       `Status PO #${id} (${po?.produk ?? po?.namaProduk ?? '?'}) diubah → "${status}"`)
   }
 
   function loggedDeletePO(id) {
     const po = poList.find(p => p.id === id)
     deletePO(id)
-    addLog('HAPUS_PO', user.name,
+    addLog('HAPUS_PO', currentUser.name,
       `Hapus PO #${id} — produk: "${po?.produk ?? po?.namaProduk ?? '?'}"`)
   }
 
   function loggedPromo(product) {
     setPromoProduct(product)
-    addLog('BUAT_PROMO', user.name,
+    addLog('BUAT_PROMO', currentUser.name,
       `Buat promo AI untuk: "${product.nama}" | Status: ${product.expired ? `Expired ${product.expired}` : 'Dead-Stock'} | Stok: ${product.stok}`)
   }
 
   function loggedLogout() {
-    addLog('LOGOUT', user.name, `Pengguna "${user.name}" logout dari sistem`)
+    addLog('LOGOUT', currentUser.name, `Pengguna "${currentUser.name}" logout dari sistem`)
     logout()
   }
 
@@ -146,7 +155,7 @@ export default function App() {
     pemasok:   'Pemasok & Purchase Order',
     pos:       'Point of Sale (POS)',
     log:       'Log Aktivitas Sistem',
-    settings:  'Pengaturan',
+    settings:  currentUser.role === ROLE.CASHIER ? 'Pengaturan Printer' : 'Pengaturan',
     profile:   'Profil Aplikasi',
   }
 
@@ -171,7 +180,7 @@ export default function App() {
 
           {/* POS — utama, tampil pertama untuk Kasir */}
           <button
-            onClick={() => setActivePage('pos')}
+            onClick={() => navigateToPage('pos')}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors
               ${activePage === 'pos' ? 'bg-emerald-50 text-emerald-700' : 'text-gray-600 hover:bg-gray-50'}`}
           >
@@ -180,9 +189,9 @@ export default function App() {
           </button>
 
           {/* Dashboard — hanya Pemilik */}
-          {user.role === 'Pemilik' && (
+          {currentUser.role === ROLE.OWNER && (
             <button
-              onClick={() => setActivePage('dashboard')}
+              onClick={() => navigateToPage('dashboard')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors
                 ${activePage === 'dashboard' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}
             >
@@ -192,9 +201,9 @@ export default function App() {
           )}
 
           {/* Pemasok — hanya Pemilik */}
-          {user.role === 'Pemilik' && (
+          {currentUser.role === ROLE.OWNER && (
             <button
-              onClick={() => setActivePage('pemasok')}
+              onClick={() => navigateToPage('pemasok')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors
                 ${activePage === 'pemasok' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}
             >
@@ -204,9 +213,9 @@ export default function App() {
           )}
 
           {/* Log Aktivitas — hanya Pemilik */}
-          {user.role === 'Pemilik' && (
+          {currentUser.role === ROLE.OWNER && (
             <button
-              onClick={() => setActivePage('log')}
+              onClick={() => navigateToPage('log')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors
                 ${activePage === 'log' ? 'bg-gray-100 text-gray-800' : 'text-gray-600 hover:bg-gray-50'}`}
             >
@@ -221,7 +230,7 @@ export default function App() {
           )}
 
           {/* Tambah Produk — hanya Pemilik */}
-          {user.role === 'Pemilik' && (
+          {currentUser.role === ROLE.OWNER && (
             <button
               onClick={() => setShowAddModal(true)}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-600 hover:bg-gray-50 text-sm font-bold transition-colors"
@@ -236,35 +245,36 @@ export default function App() {
 
           {/* Pengaturan — semua role */}
           <button
-            onClick={() => setActivePage('settings')}
+            onClick={() => navigateToPage('settings')}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors
               ${activePage === 'settings' ? 'bg-gray-100 text-gray-800' : 'text-gray-600 hover:bg-gray-50'}`}
           >
             <Settings2 size={16} />
-            Pengaturan
+            {currentUser.role === ROLE.CASHIER ? 'Pengaturan Printer' : 'Pengaturan'}
           </button>
 
-          {/* Profil Aplikasi — semua role */}
-          <button
-            onClick={() => setActivePage('profile')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors
-              ${activePage === 'profile' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}
-          >
-            <Info size={16} />
-            Profil Aplikasi
-          </button>
+          {currentUser.role === ROLE.OWNER && (
+            <button
+              onClick={() => navigateToPage('profile')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors
+                ${activePage === 'profile' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+              <Info size={16} />
+              Profil Aplikasi
+            </button>
+          )}
         </nav>
 
         {/* User info + Logout */}
         <div className="px-4 py-4 border-t border-gray-100">
           <div className="flex items-center gap-3 px-2 py-2 rounded-xl bg-gray-50">
             <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
-              <span className="text-white text-xs font-bold">{user.name.charAt(0)}</span>
+              <span className="text-white text-xs font-bold">{currentUser.name.charAt(0)}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-gray-800 truncate">{user.name}</p>
-              <span className={`inline-block text-xs px-1.5 py-0.5 rounded-full font-medium ${ROLE_COLOR[user.role] ?? 'bg-gray-100 text-gray-600'}`}>
-                {user.role}
+              <p className="text-xs font-semibold text-gray-800 truncate">{currentUser.name}</p>
+              <span className={`inline-block text-xs px-1.5 py-0.5 rounded-full font-medium ${ROLE_COLOR[currentUser.role] ?? 'bg-gray-100 text-gray-600'}`}>
+                {ROLE_LABEL[currentUser.role] ?? currentUser.role}
               </span>
             </div>
           </div>
@@ -297,9 +307,9 @@ export default function App() {
             {/* Mobile user badge */}
             <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 lg:hidden">
               <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center">
-                <span className="text-white text-xs font-bold">{user.name.charAt(0)}</span>
+                <span className="text-white text-xs font-bold">{currentUser.name.charAt(0)}</span>
               </div>
-              <span className="text-xs font-medium text-gray-700">{user.name}</span>
+              <span className="text-xs font-medium text-gray-700">{currentUser.name}</span>
               <button onClick={loggedLogout} className="text-gray-400 hover:text-red-500 transition-colors ml-1">
                 <LogOut size={13} />
               </button>
@@ -307,11 +317,11 @@ export default function App() {
             {/* Desktop user badge */}
             <div className="hidden lg:flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5">
               <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center">
-                <span className="text-white text-xs font-bold">{user.name.charAt(0)}</span>
+                <span className="text-white text-xs font-bold">{currentUser.name.charAt(0)}</span>
               </div>
-              <span className="text-xs font-medium text-gray-700">{user.name}</span>
-              <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${ROLE_COLOR[user.role] ?? 'bg-gray-100 text-gray-600'}`}>
-                {user.role}
+              <span className="text-xs font-medium text-gray-700">{currentUser.name}</span>
+              <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${ROLE_COLOR[currentUser.role] ?? 'bg-gray-100 text-gray-600'}`}>
+                {ROLE_LABEL[currentUser.role] ?? currentUser.role}
               </span>
             </div>
           </div>
@@ -332,7 +342,7 @@ export default function App() {
 
               <LowStockAlert
                 items={items}
-                onCreatePO={(product) => { setPOProduct(product); setActivePage('pemasok') }}
+                onCreatePO={(product) => { setPOProduct(product); navigateToPage('pemasok') }}
               />
 
               <section>
@@ -355,7 +365,7 @@ export default function App() {
                   <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Data Inventaris</h2>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setActivePage('pemasok')}
+                      onClick={() => navigateToPage('pemasok')}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
                     >
                       <Users size={13} />
@@ -404,7 +414,7 @@ export default function App() {
               items={items}
               onReduceStock={loggedReduceStock}
               onCheckoutLog={loggedPOSCheckout}
-              cashierName={user.name}
+              cashierName={currentUser.name}
               storeName={settings.storeName}
             />
           )}
@@ -422,7 +432,7 @@ export default function App() {
             <SettingsPage
               settings={settings}
               onSave={saveSettings}
-              currentUser={user}
+              currentUser={currentUser}
             />
           )}
 
@@ -432,10 +442,12 @@ export default function App() {
       </div>
 
       {/* Floating Chat Widget */}
-      <AgentChatWidget
-        promoProduct={promoProduct}
-        onPromoClear={() => setPromoProduct(null)}
-      />
+      {currentUser.role === ROLE.OWNER && (
+        <AgentChatWidget
+          promoProduct={promoProduct}
+          onPromoClear={() => setPromoProduct(null)}
+        />
+      )}
 
       {/* Modal Tambah Produk */}
       {showAddModal && (

@@ -1,11 +1,18 @@
 import { useState } from 'react'
 import { USERS, SESSION_KEY } from '../config/auth'
+import { normalizeRole } from '../config/permissions'
+
+function normalizeUser(user) {
+  const role = normalizeRole(user?.role)
+  if (!role || !user?.username || !user?.name) return null
+  return { username: user.username, name: user.name, role }
+}
 
 export function useAuth() {
-  const [user, setUser] = useState(() => {
+  const [currentUser, setCurrentUser] = useState(() => {
     try {
       const saved = sessionStorage.getItem(SESSION_KEY)
-      return saved ? JSON.parse(saved) : null
+      return saved ? normalizeUser(JSON.parse(saved)) : null
     } catch {
       return null
     }
@@ -16,16 +23,16 @@ export function useAuth() {
       u => u.username === username.trim() && u.password === password
     )
     if (!found) return false
-    const session = { username: found.username, name: found.name, role: found.role }
+    const session = normalizeUser(found)
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(session))
-    setUser(session)
-    return true
+    setCurrentUser(session)
+    return session
   }
 
   function logout() {
     sessionStorage.removeItem(SESSION_KEY)
-    setUser(null)
+    setCurrentUser(null)
   }
 
-  return { user, login, logout }
+  return { currentUser, login, logout }
 }

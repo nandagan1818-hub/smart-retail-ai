@@ -200,6 +200,8 @@ const supplier = getSupplierForProduct(2, produk, pemasok)
 | `kasir` | `kasir123` | Kasir |
 | `pemilik` | `pemilik123` | Pemilik Toko |
 
+Role disimpan di state `currentUser` oleh hook `useAuth` dan dinormalisasi menjadi `kasir` atau `owner`. Kasir hanya mendapat akses UI ke POS dan Pengaturan Printer; owner mendapat seluruh menu dan halaman. Pemeriksaan ini berada di frontend untuk kontrol tampilan—aplikasi produksi tetap perlu validasi role pada backend/API karena state browser dapat diubah pengguna.
+
 ---
 
 ## 🚀 Cara Menjalankan

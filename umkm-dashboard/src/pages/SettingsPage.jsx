@@ -3,6 +3,7 @@ import {
   Store, Printer, KeyRound, CheckCircle2, Eye, EyeOff,
 } from 'lucide-react'
 import { USERS } from '../config/auth'
+import { ROLE } from '../config/permissions'
 
 /* ─── helpers ── */
 function Field({ label, children }) {
@@ -37,6 +38,7 @@ function Card({ icon: Icon, iconColor = 'text-blue-600', iconBg = 'bg-blue-50', 
 
 /* ─── SettingsPage ── */
 export default function SettingsPage({ settings, onSave, currentUser }) {
+  const isOwner = currentUser?.role === ROLE.OWNER
   const [storeName,    setStoreName]    = useState(settings.storeName ?? 'Smart Retail AI')
   const [storeAddress, setStoreAddress] = useState(settings.storeAddress ?? '')
   const [printerName,  setPrinterName]  = useState(settings.printerName ?? '')
@@ -54,9 +56,11 @@ export default function SettingsPage({ settings, onSave, currentUser }) {
   /* save store settings */
   function saveStore(e) {
     e.preventDefault()
-    if (!storeName.trim()) return
-    onSave({ storeName: storeName.trim(), storeAddress: storeAddress.trim(), printerName: printerName.trim(), printerWidth })
-    setStoreMsg({ ok: true, text: 'Pengaturan toko disimpan.' })
+    if (isOwner && !storeName.trim()) return
+    onSave(isOwner
+      ? { storeName: storeName.trim(), storeAddress: storeAddress.trim(), printerName: printerName.trim(), printerWidth }
+      : { printerName: printerName.trim(), printerWidth })
+    setStoreMsg({ ok: true, text: isOwner ? 'Pengaturan toko disimpan.' : 'Pengaturan printer disimpan.' })
     setTimeout(() => setStoreMsg(null), 3000)
   }
 
@@ -87,7 +91,7 @@ export default function SettingsPage({ settings, onSave, currentUser }) {
     <div className="max-w-xl mx-auto space-y-6">
 
       {/* ── Nama & Alamat Toko ── */}
-      <Card
+      {isOwner && <Card
         icon={Store}
         iconColor="text-blue-600"
         iconBg="bg-blue-50"
@@ -120,7 +124,7 @@ export default function SettingsPage({ settings, onSave, currentUser }) {
 
           <SaveRow msg={storeMsg} />
         </form>
-      </Card>
+      </Card>}
 
       {/* ── Printer Bluetooth ── */}
       <Card
@@ -177,22 +181,14 @@ export default function SettingsPage({ settings, onSave, currentUser }) {
       </Card>
 
       {/* ── Ganti Password Kasir ── */}
-      <Card
+      {isOwner && <Card
         icon={KeyRound}
         iconColor="text-emerald-600"
         iconBg="bg-emerald-50"
         title="Kata Sandi Kasir"
         subtitle="Hanya Pemilik yang dapat mengubah kata sandi kasir"
       >
-        {currentUser?.role !== 'Pemilik' ? (
-          <div className="text-center py-6">
-            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <KeyRound size={22} className="text-gray-300" />
-            </div>
-            <p className="text-sm text-gray-400 font-medium">Hanya Pemilik yang dapat mengubah kata sandi.</p>
-          </div>
-        ) : (
-          <form onSubmit={savePassword} className="space-y-4">
+        <form onSubmit={savePassword} className="space-y-4">
             <Field label="Password Lama Kasir">
               <PasswordInput
                 value={oldPass}
@@ -236,9 +232,8 @@ export default function SettingsPage({ settings, onSave, currentUser }) {
               <KeyRound size={16} />
               Simpan Password Baru
             </button>
-          </form>
-        )}
-      </Card>
+        </form>
+      </Card>}
     </div>
   )
 }
