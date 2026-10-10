@@ -1,6 +1,6 @@
 import {
   ShoppingBag, Brain, Zap, Users, BarChart3, Smartphone,
-  ScanLine, Truck, ClipboardList, Shield, Github, Globe,
+  ScanLine, Truck, ClipboardList, Shield, GitBranch, Globe,
   Cpu, PackageSearch, MessageSquareText,
 } from 'lucide-react'
 
@@ -167,7 +167,7 @@ export default function ProfilePage() {
             rel="noreferrer"
             className="flex items-center gap-2 bg-white border border-gray-200 hover:border-gray-400 text-gray-700 text-xs font-semibold px-4 py-2.5 rounded-xl transition-colors"
           >
-            <Github size={14} />
+            <GitBranch size={14} />
             GitHub Repository
           </a>
           <a
