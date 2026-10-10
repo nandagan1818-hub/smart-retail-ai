@@ -19,6 +19,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useInventory } from '../hooks/useInventory'
 import { usePemasok } from '../hooks/usePemasok'
 import { useActivityLog } from '../hooks/useActivityLog'
+import { getSupplierIdForCategory } from '../utils/supplierLookup'
 import {
   LayoutDashboard, ShoppingBag, LogOut, PackagePlus,
   Truck, Users, MonitorSmartphone, ClipboardList, Settings2, Info,
@@ -73,7 +74,10 @@ export default function App() {
   }
 
   function loggedAddMany(products) {
-    addMany(products)
+    addMany(products.map(product => ({
+      ...product,
+      supplierId: product.supplierId ?? getSupplierIdForCategory(product.kategori, pemasokList),
+    })))
     addLog('TAMBAH_OCR', user.name,
       `OCR Faktur: ${products.length} produk ditambahkan — ${products.map(p => `"${p.nama}"`).join(', ')}`)
   }
@@ -382,6 +386,7 @@ export default function App() {
           {activePage === 'pemasok' && (
             <PemasokPage
               pemasokList={pemasokList}
+              products={items}
               poList={poList}
               addPemasok={addPemasok}
               deletePemasok={deletePemasok}
@@ -435,6 +440,7 @@ export default function App() {
       {/* Modal Tambah Produk */}
       {showAddModal && (
         <AddProductModal
+          pemasokList={pemasokList}
           onAdd={loggedAddItem}
           onClose={() => setShowAddModal(false)}
         />

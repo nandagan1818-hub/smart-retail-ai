@@ -160,6 +160,32 @@ Request AI
 - Multi-select + bulk delete
 - Tombol **"Buat Promo"** per produk
 
+### 🔗 Relasi Produk, Pemasok, dan Low-Stock
+Produk menyimpan `supplierId` sebagai foreign key ke `pemasok.id`. Saat tombol **Buat PO** diklik pada produk low-stock, pemasok terkait dipilih otomatis dan nomor WhatsApp-nya ditampilkan. Produk yang belum memiliki relasi tetap dapat diproses dengan memilih pemasok secara manual.
+
+Contoh bentuk data relasional:
+
+```javascript
+const pemasok = [
+  { id: 1, nama: 'CV Sumber Makmur', kontak: '0812-3456-7890', kategori: 'Makanan Pokok' },
+  { id: 2, nama: 'PT Maju Bersama', kontak: '0821-9876-5432', kategori: 'Minuman' },
+]
+
+const produk = [
+  { id: 1, nama: 'Beras Premium 5kg', kategori: 'Makanan Pokok', supplierId: 1, stok: 5, stokMin: 10 },
+  { id: 2, nama: 'Susu UHT Full Cream 1L', kategori: 'Minuman', supplierId: 2, stok: 3, stokMin: 20 },
+]
+```
+
+Cari pemasok menggunakan `productId`; hasilnya mencakup nama dan nomor WhatsApp (`kontak`):
+
+```javascript
+import { getSupplierForProduct } from './utils/supplierLookup'
+
+const supplier = getSupplierForProduct(2, produk, pemasok)
+// { id: 2, nama: 'PT Maju Bersama', kontak: '0821-9876-5432', kategori: 'Minuman' }
+```
+
 ### 🤖 Chat AI Widget
 - Floating chat di pojok kanan bawah
 - Klik "Buat Promo" di tabel → prompt otomatis terisi + chat terbuka

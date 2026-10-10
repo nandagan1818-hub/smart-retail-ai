@@ -5,6 +5,7 @@ export const pemasokInitial = [
   { id: 3, nama: 'UD Berkah Jaya',       kontak: '0856-1234-5678', email: 'berkah@jaya.com',    alamat: 'Jl. Pahlawan No. 8, Surabaya',      kategori: 'Kebersihan' },
   { id: 4, nama: 'Toko Snack Sejahtera', kontak: '0878-8765-4321', email: 'snack@sejahtera.id', alamat: 'Jl. Veteran No. 33, Yogyakarta',    kategori: 'Snack & Susu' },
   { id: 5, nama: 'CV Bumbu Nusantara',   kontak: '0813-5555-6666', email: 'bumbu@nusantara.id', alamat: 'Jl. Gatot Subroto No. 21, Semarang', kategori: 'Bumbu & Saus' },
+  { id: 6, nama: 'UD Aneka Niaga',       kontak: '0812-1111-2222', email: 'aneka@niaga.id',     alamat: 'Jl. Diponegoro No. 10, Jakarta',     kategori: 'Lainnya' },
 ]
 
 // Status PO

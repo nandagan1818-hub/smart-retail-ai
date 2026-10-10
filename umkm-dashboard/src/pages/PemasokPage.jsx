@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Plus, Trash2, X, Building2, FileText, ChevronDown } from 'lucide-react'
 import { PO_STATUS } from '../data/pemasok'
+import { getSupplierForProduct } from '../utils/supplierLookup'
 
 const fmt = (v) =>
   new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(v)
@@ -69,8 +70,13 @@ function ModalPemasok({ onAdd, onClose }) {
 }
 
 // ── Modal Buat PO ─────────────────────────────────────────────
-function ModalPO({ pemasokList, defaultProduct, onAdd, onClose }) {
-  const [pemasokId, setPemasokId] = useState(pemasokList[0]?.id ?? '')
+function ModalPO({ pemasokList, products, defaultProduct, onAdd, onClose }) {
+  const suggestedSupplier = defaultProduct
+    ? getSupplierForProduct(defaultProduct.id, products, pemasokList)
+    : null
+  const [pemasokId, setPemasokId] = useState(
+    defaultProduct ? suggestedSupplier?.id ?? '' : pemasokList[0]?.id ?? ''
+  )
   const [items, setItems]         = useState(
     defaultProduct
       ? [{ nama: defaultProduct.nama, qty: defaultProduct.stokMin ?? 10, hpp: defaultProduct.hpp ?? 0 }]
@@ -79,7 +85,7 @@ function ModalPO({ pemasokList, defaultProduct, onAdd, onClose }) {
   const [tanggal, setTanggal]   = useState(() => new Date().toISOString().slice(0, 10))
   const [catatan, setCatatan]   = useState('')
 
-  const pemasok = pemasokList.find(p => p.id === Number(pemasokId))
+  const pemasok = pemasokList.find(p => String(p.id) === String(pemasokId))
   const total   = items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.hpp) || 0), 0)
 
   function addItem() { setItems(prev => [...prev, { nama: '', qty: 1, hpp: 0 }]) }
@@ -88,7 +94,7 @@ function ModalPO({ pemasokList, defaultProduct, onAdd, onClose }) {
 
   function submit(e) {
     e.preventDefault()
-    if (!pemasokId || items.some(i => !i.nama.trim())) return
+    if (!pemasok || items.some(i => !i.nama.trim())) return
     onAdd({ tanggal, pemasokId: Number(pemasokId), pemasokNama: pemasok?.nama ?? '', items, catatan })
     onClose()
   }
@@ -114,8 +120,27 @@ function ModalPO({ pemasokList, defaultProduct, onAdd, onClose }) {
               <label className="block text-xs font-semibold text-gray-600 mb-1">Pemasok <span className="text-red-500">*</span></label>
               <select value={pemasokId} onChange={e => setPemasokId(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200">
+                <option value="">Pilih pemasok</option>
                 {pemasokList.map(p => <option key={p.id} value={p.id}>{p.nama}</option>)}
               </select>
+              {pemasok && (
+                <p className="text-xs text-gray-500 mt-1">
+                  WhatsApp:{' '}
+                  <a
+                    href={`https://wa.me/${pemasok.kontak.replace(/\D/g, '').replace(/^0/, '62')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    {pemasok.kontak}
+                  </a>
+                </p>
+              )}
+              {defaultProduct && !suggestedSupplier && (
+                <p className="text-xs text-amber-600 mt-1">
+                  Produk ini belum memiliki pemasok; silakan pilih secara manual.
+                </p>
+              )}
             </div>
           </div>
 
@@ -165,7 +190,7 @@ function ModalPO({ pemasokList, defaultProduct, onAdd, onClose }) {
 }
 
 // ── Halaman Utama Pemasok & PO ────────────────────────────────
-export default function PemasokPage({ pemasokList, poList, addPemasok, deletePemasok, addPO, updatePOStatus, deletePO, defaultPOProduct, onDefaultPOClear }) {
+export default function PemasokPage({ pemasokList, products, poList, addPemasok, deletePemasok, addPO, updatePOStatus, deletePO, defaultPOProduct, onDefaultPOClear }) {
   const [tab, setTab]               = useState('pemasok')
   const [showModalPemasok, setShowModalPemasok] = useState(false)
   const [showModalPO, setShowModalPO]           = useState(!!defaultPOProduct)
@@ -309,6 +334,7 @@ export default function PemasokPage({ pemasokList, poList, addPemasok, deletePem
       {showModalPO && (
         <ModalPO
           pemasokList={pemasokList}
+          products={products}
           defaultProduct={defaultPOProduct}
           onAdd={addPO}
           onClose={() => { setShowModalPO(false); onDefaultPOClear?.() }}

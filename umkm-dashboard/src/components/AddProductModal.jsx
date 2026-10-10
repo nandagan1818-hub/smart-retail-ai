@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X, Plus, PackagePlus } from 'lucide-react'
+import { getSupplierIdForCategory } from '../utils/supplierLookup'
 
 const KATEGORI_OPTIONS = [
   'Minuman', 'Makanan Pokok', 'Bumbu & Saus',
@@ -7,12 +8,15 @@ const KATEGORI_OPTIONS = [
 ]
 
 const EMPTY_FORM = {
-  nama: '', kategori: 'Minuman', stok: '',
+  nama: '', kategori: 'Minuman', supplierId: '', stok: '',
   hargaJual: '', hpp: '', stokMin: '', expired: ''
 }
 
-export default function AddProductModal({ onAdd, onClose }) {
-  const [form, setForm]     = useState(EMPTY_FORM)
+export default function AddProductModal({ pemasokList, onAdd, onClose }) {
+  const [form, setForm]     = useState(() => ({
+    ...EMPTY_FORM,
+    supplierId: getSupplierIdForCategory('Minuman', pemasokList) ?? '',
+  }))
   const [errors, setErrors] = useState({})
 
   function validate() {
@@ -26,7 +30,13 @@ export default function AddProductModal({ onAdd, onClose }) {
   }
 
   function handleChange(field, value) {
-    setForm(prev => ({ ...prev, [field]: value }))
+    setForm(prev => ({
+      ...prev,
+      [field]: value,
+      ...(field === 'kategori'
+        ? { supplierId: getSupplierIdForCategory(value, pemasokList) ?? '' }
+        : {}),
+    }))
     setErrors(prev => ({ ...prev, [field]: undefined }))
   }
 
@@ -37,6 +47,7 @@ export default function AddProductModal({ onAdd, onClose }) {
     onAdd({
       nama:         form.nama.trim(),
       kategori:     form.kategori,
+      supplierId:   form.supplierId ? Number(form.supplierId) : null,
       stok:         parseInt(form.stok),
       hargaJual:    parseInt(form.hargaJual),
       hpp:          parseInt(form.hpp),
@@ -88,6 +99,20 @@ export default function AddProductModal({ onAdd, onClose }) {
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200"
             >
               {KATEGORI_OPTIONS.map(k => <option key={k}>{k}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">Pemasok</label>
+            <select
+              value={form.supplierId}
+              onChange={e => handleChange('supplierId', e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-200"
+            >
+              <option value="">Pilih pemasok (opsional)</option>
+              {pemasokList.map(pemasok => (
+                <option key={pemasok.id} value={pemasok.id}>{pemasok.nama}</option>
+              ))}
             </select>
           </div>
 
