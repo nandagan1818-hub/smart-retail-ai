@@ -33,6 +33,7 @@ function localApiPlugin(env) {
         if      (route === '/api/chat')     handlerPath = resolve(__dirname, 'api/chat.js')
         else if (route === '/api/langflow') handlerPath = resolve(__dirname, 'api/langflow.js')
         else if (route === '/api/ocr')      handlerPath = resolve(__dirname, 'api/ocr.js')
+        else if (route === '/api/agent')    handlerPath = resolve(__dirname, 'api/agent.js')
         else                                return next()
 
         // Buat req/res ala Vercel (minimal subset)

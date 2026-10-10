@@ -4,6 +4,7 @@ import FinancialCards from '../components/FinancialCards'
 import StockCharts from '../components/StockCharts'
 import ActionTable from '../components/ActionTable'
 import AgentChatWidget from '../components/AgentChatWidget'
+import AgentInsightPanel from '../components/AgentInsightPanel'
 import AlertBanner from '../components/AlertBanner'
 import LowStockAlert from '../components/LowStockAlert'
 import AddProductModal from '../components/AddProductModal'
@@ -319,6 +320,12 @@ export default function App() {
           {activePage === 'dashboard' && (
             <>
               <AlertBanner items={items} />
+
+              <section>
+                <h2 className="text-sm font-semibold text-gray-600 mb-3 uppercase tracking-wide">AI Business Optimizer</h2>
+                <AgentInsightPanel items={items} />
+              </section>
+
               <LowStockAlert
                 items={items}
                 onCreatePO={(product) => { setPOProduct(product); setActivePage('pemasok') }}
