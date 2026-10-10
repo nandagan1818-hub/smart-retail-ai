@@ -12,6 +12,7 @@ import PemasokPage from './PemasokPage'
 import POSPage from './POSPage'
 import SettingsPage from './SettingsPage'
 import ActivityLogPage from './ActivityLogPage'
+import ProfilePage from './ProfilePage'
 import LoginPage from './LoginPage'
 import { useAuth } from '../hooks/useAuth'
 import { useInventory } from '../hooks/useInventory'
@@ -19,7 +20,7 @@ import { usePemasok } from '../hooks/usePemasok'
 import { useActivityLog } from '../hooks/useActivityLog'
 import {
   LayoutDashboard, ShoppingBag, LogOut, PackagePlus,
-  Truck, Users, MonitorSmartphone, ClipboardList, Settings2,
+  Truck, Users, MonitorSmartphone, ClipboardList, Settings2, Info,
 } from 'lucide-react'
 
 const ROLE_COLOR = {
@@ -141,6 +142,7 @@ export default function App() {
     pos:       'Point of Sale (POS)',
     log:       'Log Aktivitas Sistem',
     settings:  'Pengaturan',
+    profile:   'Profil Aplikasi',
   }
 
   return (
@@ -235,6 +237,16 @@ export default function App() {
           >
             <Settings2 size={16} />
             Pengaturan
+          </button>
+
+          {/* Profil Aplikasi — semua role */}
+          <button
+            onClick={() => setActivePage('profile')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors
+              ${activePage === 'profile' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}
+          >
+            <Info size={16} />
+            Profil Aplikasi
           </button>
         </nav>
 
@@ -401,6 +413,9 @@ export default function App() {
               currentUser={user}
             />
           )}
+
+          {/* ── PROFIL APLIKASI ── */}
+          {activePage === 'profile' && <ProfilePage />}
         </main>
       </div>
 
